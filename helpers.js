@@ -1,44 +1,20 @@
-// Function to generate a random ID
-function generateId(length = 8) {
-    return Math.random().toString(36).substr(2, length);
-}
-
-// Function to debounce another function
-function debounce(func, delay) {
-    let timeoutId;
-    return function(...args) {
-        if (timeoutId) {
-            clearTimeout(timeoutId);
+const fetchWithRetry = async (url, options = {}, retries = 3, delay = 1000) => {
+    const fetchWithDelay = (ms) => new Promise(res => setTimeout(res, ms));
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
-        timeoutId = setTimeout(() => {
-            func.apply(this, args);
-        }, delay);
-    };
-}
-
-// Function to merge two objects deeply
-function deepMerge(target, source) {
-    for (const key in source) {
-        if (source[key] instanceof Object) {
-            Object.assign(source[key], deepMerge(target[key], source[key]));
+        return await response.json();
+    } catch (error) {
+        if (retries === 0) {
+            console.error('Max retries reached.');
+            throw error;
         }
+        console.warn(`Fetch error: ${error.message}. Retrying in ${delay}ms...`);
+        await fetchWithDelay(delay);
+        return fetchWithRetry(url, options, retries - 1, delay);
     }
-    Object.assign(target || {}, source);
-    return target;
-}
+};
 
-// Function to check if a value is promise
-function isPromise(value) {
-    return value && typeof value.then === 'function';
-}
-
-// Function to format date in 'YYYY-MM-DD' format
-function formatDate(date) {
-    const d = new Date(date);
-    return d.toISOString().split('T')[0];
-}
-
-// Function to get unique values from an array
-function uniqueArray(arr) {
-    return [...new Set(arr)];
-}
+export { fetchWithRetry };
