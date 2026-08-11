@@ -1,30 +1,7 @@
-const fs = require('fs');
-const path = require('path');
+const config = {  apiEndpoint: 'https://api.example.com',  timeout: 5000,  retries: 3};
 
-class ConfigLoader {
-    constructor(defaults) {
-        this.defaults = defaults;
-        this.config = {};
-    }
+const getConfigValue = (key) => {  if (typeof key !== 'string') {    throw new TypeError('Key must be a string');  }  if (!config.hasOwnProperty(key)) {    throw new ReferenceError(`No configuration value found for: ${key}`);  }  return config[key];};
 
-    loadConfig(filePath) {
-        const fullPath = path.resolve(filePath);
-        if (fs.existsSync(fullPath)) {
-            const userConfig = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
-            this.config = { ...this.defaults, ...userConfig };
-        } else {
-            this.config = this.defaults;
-        }
-        return this.config;
-    }
+const setConfigValue = (key, value) => {  if (typeof key !== 'string') {    throw new TypeError('Key must be a string');  }  if (value === undefined || value === null) {    throw new Error('Value cannot be null or undefined');  }  config[key] = value;};
 
-    get(key) {
-        return this.config[key];
-    }
-
-    set(key, value) {
-        this.config[key] = value;
-    }
-}
-
-module.exports = ConfigLoader;
+module.exports = {  getConfigValue,  setConfigValue};
