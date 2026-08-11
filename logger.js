@@ -1,33 +1,25 @@
 class Logger {
     constructor() {
         this.logs = [];
-        this.performanceStart = performance.now();
     }
-
     log(message) {
         const timestamp = new Date().toISOString();
-        this.logs.push({ timestamp, message });
-        console.log(`[${timestamp}] ${message}`);
-        this.optimizePerformance();
+        this.logs.push(`[${timestamp}] ${message}`);
+        console.log(this.logs[this.logs.length - 1]);
     }
-
-    optimizePerformance() {
-        const elapsedTime = performance.now() - this.performanceStart;
-        if (this.logs.length > 100 || elapsedTime > 5000) {
-            this.flushLogs();
-        }
+    getLogs() {
+        return this.logs;
     }
-
-    flushLogs() {
-        // Pretend to send logs to a logging server
-        console.info('Flushing logs to server:', this.logs);
+    clearLogs() {
         this.logs = [];
-        this.performanceStart = performance.now();
     }
 }
 
 const logger = new Logger();
-logger.log('This is a test log.');
-logger.log('Another log entry.');
 
-export default logger;
+// Usage example:
+logger.log('Application started.');
+logger.log('An error occurred.');
+console.log(logger.getLogs());
+logger.clearLogs();
+console.log(logger.getLogs());
