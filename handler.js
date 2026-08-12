@@ -1,33 +1,37 @@
-function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
-    return new Promise((resolve, reject) => {
-        const attemptFetch = (n) => {
-            fetch(url, options)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => resolve(data))
-                .catch(error => {
-                    if (n === 1) {
-                        return reject(error);
-                    }
-                    setTimeout(() => attemptFetch(n - 1), delay);
-                });
-        };
-        attemptFetch(retries);
+function processClicks(clicks) {
+    const validatedClicks = validateClicks(clicks);
+    if (!validatedClicks) {
+        console.error('Invalid click data provided.');
+        return;
+    }
+    validatedClicks.forEach(click => {
+        setTimeout(() => {
+            simulateClick(click);
+        }, click.delay);
     });
 }
 
-// Example usage of fetchWithRetry function
-async function exampleNetworkCall() {
-    try {
-        const data = await fetchWithRetry('https://api.example.com/data', {}, 3, 2000);
-        console.log(data);
-    } catch (error) {
-        console.error('Fetch failed after retries:', error);
+function validateClicks(clicks) {
+    if (!Array.isArray(clicks)) {
+        return false;
     }
+    return clicks.map(click => {
+        return { 
+            x: validateCoordinate(click.x), 
+            y: validateCoordinate(click.y), 
+            delay: validateDelay(click.delay) 
+        };
+    }).filter(click => click.x !== null && click.y !== null && click.delay !== null);
 }
 
-exampleNetworkCall();
+function validateCoordinate(coord) {
+    return typeof coord === 'number' && coord >= 0 ? coord : null;
+}
+
+function validateDelay(delay) {
+    return typeof delay === 'number' && delay >= 0 ? delay : null;
+}
+
+function simulateClick({ x, y }) {
+    console.log(`Simulating click at (${x}, ${y})`);
+}
