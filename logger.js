@@ -1,25 +1,46 @@
+const fs = require('fs');
+const path = require('path');
+
 class Logger {
-    constructor() {
-        this.logs = [];
+    constructor(logDir, maxSize, maxFiles) {
+        this.logDir = logDir || 'logs';
+        this.maxSize = maxSize || 1024 * 1024; // 1MB
+        this.maxFiles = maxFiles || 5;
+        this.currentLogFile = path.join(this.logDir, 'app.log');
+
+        if (!fs.existsSync(this.logDir)) {
+            fs.mkdirSync(this.logDir);
+        }
     }
+
     log(message) {
         const timestamp = new Date().toISOString();
-        this.logs.push(`[${timestamp}] ${message}`);
-        console.log(this.logs[this.logs.length - 1]);
+        const logMessage = `${timestamp} - ${message}\n`;
+        fs.appendFileSync(this.currentLogFile, logMessage);
+        this.checkLogFile();
     }
-    getLogs() {
-        return this.logs;
+
+    checkLogFile() {
+        const stats = fs.statSync(this.currentLogFile);
+        if (stats.size >= this.maxSize) {
+            this.rotateLogFile();
+        }
     }
-    clearLogs() {
-        this.logs = [];
+
+    rotateLogFile() {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const newLogFile = path.join(this.logDir, `app-${timestamp}.log`);
+        fs.renameSync(this.currentLogFile, newLogFile);
+
+        const files = fs.readdirSync(this.logDir)
+            .filter(file => file.startsWith('app-'))
+            .sort();
+
+        while (files.length > this.maxFiles) {
+            fs.unlinkSync(path.join(this.logDir, files.shift()));
+        }
+        fs.writeFileSync(this.currentLogFile, '');
     }
 }
 
-const logger = new Logger();
-
-// Usage example:
-logger.log('Application started.');
-logger.log('An error occurred.');
-console.log(logger.getLogs());
-logger.clearLogs();
-console.log(logger.getLogs());
+module.exports = Logger;
