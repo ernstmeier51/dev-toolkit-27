@@ -1,33 +1,33 @@
-class AutoClicker {
-    constructor(interval) {
-        this.interval = interval;
-        this.isActive = false;
+// @ts-check
+/**
+ * Simulates mouse clicks at a given interval on a specified element.
+ * @param {HTMLElement} element - The target element to click on.
+ * @param {number} interval - The interval in milliseconds between clicks.
+ * @param {number} count - The total number of clicks to perform.
+ */
+function startAutoClicker(element, interval, count) {
+    if (!element || !(element instanceof HTMLElement)) {
+        throw new Error('Invalid element provided.');
+    }
+    if (typeof interval !== 'number' || interval <= 0) {
+        throw new Error('Interval must be a positive number.');
+    }
+    if (typeof count !== 'number' || count <= 0) {
+        throw new Error('Count must be a positive number.');
     }
 
-    validateInput(value) {
-        return typeof value === 'number' && value > 0;
-    }
+    let clicksPerformed = 0;
 
-    start() {
-        if (!this.validateInput(this.interval)) {
-            console.error('Invalid interval. Must be a positive number.');
-            return;
+    const clickInterval = setInterval(() => {
+        if (clicksPerformed < count) {
+            element.click();
+            clicksPerformed++;
+        } else {
+            clearInterval(clickInterval);
         }
-        this.isActive = true;
-        this.run();
-    }
-
-    stop() {
-        this.isActive = false;
-    }
-
-    run() {
-        if (!this.isActive) return;
-        console.log('Click!'); // Simulated click
-        setTimeout(() => this.run(), this.interval);
-    }
+    }, interval);
 }
 
-const clicker = new AutoClicker(1000);
-clicker.start();
-setTimeout(() => clicker.stop(), 5000);
+// Example usage:
+// const button = document.getElementById('myButton');
+// startAutoClicker(button, 1000, 10);
