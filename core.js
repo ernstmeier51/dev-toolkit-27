@@ -1,33 +1,32 @@
-// @ts-check
-/**
- * Simulates mouse clicks at a given interval on a specified element.
- * @param {HTMLElement} element - The target element to click on.
- * @param {number} interval - The interval in milliseconds between clicks.
- * @param {number} count - The total number of clicks to perform.
- */
-function startAutoClicker(element, interval, count) {
-    if (!element || !(element instanceof HTMLElement)) {
-        throw new Error('Invalid element provided.');
-    }
-    if (typeof interval !== 'number' || interval <= 0) {
-        throw new Error('Interval must be a positive number.');
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error('Count must be a positive number.');
+class AutoClicker {
+    constructor(targetElement, interval) {
+        this.targetElement = targetElement;
+        this.interval = interval;
+        this.clickTimeout = null;
+        this.isClicking = false;
     }
 
-    let clicksPerformed = 0;
+    startClicking() {
+        if (this.isClicking) return;
+        this.isClicking = true;
+        this.click();
+    }
 
-    const clickInterval = setInterval(() => {
-        if (clicksPerformed < count) {
-            element.click();
-            clicksPerformed++;
-        } else {
-            clearInterval(clickInterval);
-        }
-    }, interval);
+    click() {
+        this.targetElement.click();
+        this.clickTimeout = setTimeout(() => this.click(), this.interval);
+    }
+
+    stopClicking() {
+        if (!this.isClicking) return;
+        this.isClicking = false;
+        clearTimeout(this.clickTimeout);
+    }
 }
 
-// Example usage:
-// const button = document.getElementById('myButton');
-// startAutoClicker(button, 1000, 10);
+const targetElement = document.getElementById('myButton');
+const autoclicker = new AutoClicker(targetElement, 1000);
+
+// Example start and stop calls
+// autoclicker.startClicking();
+// setTimeout(() => autoclicker.stopClicking(), 10000);
