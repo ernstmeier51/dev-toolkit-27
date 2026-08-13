@@ -1,46 +1,42 @@
 # dev-toolkit-27
 
-An advanced autoclicker built in JavaScript, designed to boost your productivity by automating repetitive clicking tasks with customizable parameters. Whether you're gaming, testing, or managing web applications, dev-toolkit-27 streamlines your workflow effortlessly.
+A powerful and customizable autoclicker built in JavaScript that simplifies repetitive clicking tasks for users. Ideal for gamers and automation enthusiasts, this tool increases efficiency by automating mouse clicks based on user-defined parameters.
 
 ## Features
-- **Custom Click Interval:** Set precise click intervals ranging from milliseconds to seconds, allowing for tailored automation depending on your needs. 
-- **Click Patterns:** Choose from various click patterns—single click, double click, or rapid-fire clicks—to optimize your specific tasks.
-- **User-Friendly Interface:** An easy-to-navigate GUI to start, stop, and modify clicking behaviors without diving into the code.
-- **Hotkey Support:** Quickly toggle clicking on and off using customizable keyboard shortcuts for instant control during your work sessions.
+
+- **Customizable Click Rates:** Adjust the click frequency to suit your needs, from rapid-fire clicks to slower, more deliberate inputs.
+- **Hotkey Support:** Set up trigger keys to start and stop clicking operations seamlessly without leaving your application.
+- **Click Patterns:** Create specific clicking patterns (e.g., single click, double click, or right-click) for a variety of user scenarios.
+- **Cross-Platform Compatibility:** Works on any operating system that supports Node.js, ensuring a broad audience can harness its power.
 
 ## Installation
 
-To install the necessary dependencies and set up the project, follow these steps:
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Developer/dev-toolkit-27.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd dev-toolkit-27
-   ```
-3. Install required packages (if any):
-   ```bash
-   npm install
-   ```
-
-## Basic Usage
-
-After setting up, you can run the autoclicker directly with Node.js:
+To get started with dev-toolkit-27, clone the repository and install the required dependencies:
 
 ```bash
-node index.js
+git clone https://github.com/Developer/dev-toolkit-27.git
+cd dev-toolkit-27
+npm install
 ```
 
-Upon running, the user interface will appear, allowing you to set your desired click parameters and activate the autoclicker.
+Ensure you have Node.js installed on your machine. You can download it from [nodejs.org](https://nodejs.org).
 
-![User Interface Example](./screenshot.png)
+## Basic Usage Example
+
+Once installed, you can run the autoclicker directly from the command line. Start the tool with the following command:
+
+```bash
+node index.js --clickRate 100 --clickType single
+```
+
+This example will initiate the autoclicker, clicking once every 100 milliseconds. Customize the `--clickRate` and `--clickType` flags to suit your requirements. Press the designated hotkey to stop the clicking operation at any time.
 
 ## License
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![MIT License](https://img.shields.io/badge/license-MIT-brightgreen)
 
-For more details on licensing and contributions, please refer to the [LICENSE](LICENSE) file in the repository. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-With dev-toolkit-27, automate your clicking tasks efficiently and focus on what truly matters!
+---
+
+With dev-toolkit-27, you can take control of repetitive clicking tasks, enhance gameplay, and increase productivity effortlessly!
