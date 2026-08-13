@@ -1,1 +1,51 @@
-class AutoClicker { constructor() { this.interval = null; this.clicks = 0; } start(interval) { if (typeof interval !== 'number' || interval <= 0) { throw new Error('Interval must be a positive number'); } this.stop(); this.interval = setInterval(() => { this.triggerClick(); }, interval); } stop() { clearInterval(this.interval); this.interval = null; } triggerClick() { try { // simulate a click action console.log('Click', ++this.clicks); } catch (e) { console.error('Error during click:', e); } } getClickCount() { return this.clicks; } } const clicker = new AutoClicker(); window.clicker = clicker;
+// @ts-check
+
+/**
+ * Class representing an autoclicker handler.
+ */
+class AutoClickerHandler {
+    /**
+     * Create an autoclicker handler.
+     * @param {number} interval - The interval between clicks in milliseconds.
+     */
+    constructor(interval) {
+        /** @type {number} */
+        this.interval = interval;
+        /** @type {boolean} */
+        this.isActive = false;
+        /** @type {number | null} */
+        this.clickIntervalId = null;
+    }
+
+    /**
+     * Start the autoclicker.
+     */
+    start() {
+        if (this.isActive) return;
+        this.isActive = true;
+        this.clickIntervalId = setInterval(() => this.click(), this.interval);
+    }
+
+    /**
+     * Stop the autoclicker.
+     */
+    stop() {
+        if (!this.isActive) return;
+        this.isActive = false;
+        if (this.clickIntervalId !== null) {
+            clearInterval(this.clickIntervalId);
+            this.clickIntervalId = null;
+        }
+    }
+
+    /**
+     * Simulate a click event.
+     */
+    click() {
+        console.log('Click!');
+        // Logic to trigger actual click event can go here.
+    }
+}
+
+// Exporting the AutoClickerHandler class
+module.exports = AutoClickerHandler;
