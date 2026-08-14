@@ -1,51 +1,31 @@
-// @ts-check
-
-/**
- * Class representing an autoclicker handler.
- */
-class AutoClickerHandler {
-    /**
-     * Create an autoclicker handler.
-     * @param {number} interval - The interval between clicks in milliseconds.
-     */
+class AutoClicker {
     constructor(interval) {
-        /** @type {number} */
         this.interval = interval;
-        /** @type {boolean} */
-        this.isActive = false;
-        /** @type {number | null} */
-        this.clickIntervalId = null;
+        this.clicking = false;
+        this.clickId = null;
     }
 
-    /**
-     * Start the autoclicker.
-     */
     start() {
-        if (this.isActive) return;
-        this.isActive = true;
-        this.clickIntervalId = setInterval(() => this.click(), this.interval);
+        if (this.clicking) return;
+        this.clicking = true;
+        this.clickId = setInterval(() => this.triggerClick(), this.interval);
     }
 
-    /**
-     * Stop the autoclicker.
-     */
     stop() {
-        if (!this.isActive) return;
-        this.isActive = false;
-        if (this.clickIntervalId !== null) {
-            clearInterval(this.clickIntervalId);
-            this.clickIntervalId = null;
-        }
+        if (!this.clicking) return;
+        clearInterval(this.clickId);
+        this.clicking = false;
+        this.clickId = null;
     }
 
-    /**
-     * Simulate a click event.
-     */
-    click() {
-        console.log('Click!');
-        // Logic to trigger actual click event can go here.
+    triggerClick() {
+        const event = new MouseEvent('click', { bubbles: true });
+        document.dispatchEvent(event);
     }
 }
 
-// Exporting the AutoClickerHandler class
-module.exports = AutoClickerHandler;
+const clicker = new AutoClicker(1000);
+clicker.start();
+
+// Stop clicking after 10 seconds
+setTimeout(() => clicker.stop(), 10000);
