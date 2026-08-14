@@ -1,32 +1,46 @@
+// AutoClicker class that manages click events
 class AutoClicker {
-    constructor(targetElement, interval) {
-        this.targetElement = targetElement;
-        this.interval = interval;
-        this.clickTimeout = null;
-        this.isClicking = false;
-    }
+  /**
+   * Creates an instance of AutoClicker.
+   * @param {number} interval - The interval in milliseconds between clicks.
+   */
+  constructor(interval) {
+    this.interval = interval;
+    this.clickInterval = null;
+  }
 
-    startClicking() {
-        if (this.isClicking) return;
-        this.isClicking = true;
-        this.click();
+  /**
+   * Starts the autoclicking process.
+   */
+  start() {
+    if (!this.clickInterval) {
+      this.clickInterval = setInterval(() => this.performClick(), this.interval);
     }
+  }
 
-    click() {
-        this.targetElement.click();
-        this.clickTimeout = setTimeout(() => this.click(), this.interval);
-    }
+  /**
+   * Stops the autoclicking process.
+   */
+  stop() {
+    clearInterval(this.clickInterval);
+    this.clickInterval = null;
+  }
 
-    stopClicking() {
-        if (!this.isClicking) return;
-        this.isClicking = false;
-        clearTimeout(this.clickTimeout);
-    }
+  /**
+   * Simulates a click event at the current cursor location.
+   */
+  performClick() {
+    const event = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    });
+    document.dispatchEvent(event);
+  }
 }
 
-const targetElement = document.getElementById('myButton');
-const autoclicker = new AutoClicker(targetElement, 1000);
+// Example usage
+const clicker = new AutoClicker(1000);
+clicker.start();
 
-// Example start and stop calls
-// autoclicker.startClicking();
-// setTimeout(() => autoclicker.stopClicking(), 10000);
+// To stop autoclicking, call clicker.stop();
