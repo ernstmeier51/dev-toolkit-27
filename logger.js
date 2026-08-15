@@ -1,46 +1,37 @@
-const fs = require('fs');
-const path = require('path');
+// Logger Utility to Optimize Performance
 
-class Logger {
-    constructor(logDir, maxSize, maxFiles) {
-        this.logDir = logDir || 'logs';
-        this.maxSize = maxSize || 1024 * 1024; // 1MB
-        this.maxFiles = maxFiles || 5;
-        this.currentLogFile = path.join(this.logDir, 'app.log');
+const logLevels = {
+    INFO: 'INFO',
+    WARN: 'WARN',
+    ERROR: 'ERROR'
+};
 
-        if (!fs.existsSync(this.logDir)) {
-            fs.mkdirSync(this.logDir);
-        }
-    }
+let logs = [];
 
-    log(message) {
-        const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} - ${message}\n`;
-        fs.appendFileSync(this.currentLogFile, logMessage);
-        this.checkLogFile();
-    }
-
-    checkLogFile() {
-        const stats = fs.statSync(this.currentLogFile);
-        if (stats.size >= this.maxSize) {
-            this.rotateLogFile();
-        }
-    }
-
-    rotateLogFile() {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const newLogFile = path.join(this.logDir, `app-${timestamp}.log`);
-        fs.renameSync(this.currentLogFile, newLogFile);
-
-        const files = fs.readdirSync(this.logDir)
-            .filter(file => file.startsWith('app-'))
-            .sort();
-
-        while (files.length > this.maxFiles) {
-            fs.unlinkSync(path.join(this.logDir, files.shift()));
-        }
-        fs.writeFileSync(this.currentLogFile, '');
+function log(level, message) {
+    const timestamp = new Date().toISOString();
+    logs.push({ timestamp, level, message });
+    if (logs.length > 100) {
+        logs.shift(); // Keep only the last 100 logs
     }
 }
 
-module.exports = Logger;
+function getLogs() {
+    return logs.slice(); // Return a copy of logs
+}
+
+function clearLogs() {
+    logs = [];
+}
+
+function getLastLog() {
+    return logs[logs.length - 1] || null;
+}
+
+module.exports = {
+    logLevels,
+    log,
+    getLogs,
+    clearLogs,
+    getLastLog
+};
