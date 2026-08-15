@@ -1,28 +1,26 @@
+const fs = require('fs');
+const path = require('path');
+
 class Logger {
-    constructor() {
-        this.logs = [];
+    constructor(logDir) {
+        this.logDir = logDir;
+        this.logFile = path.join(logDir, 'app.log');
+        this.maxSize = 5 * 1024 * 1024; // 5 MB
     }
 
     log(message) {
-        if (this.validateInput(message)) {
-            this.logs.push({ timestamp: new Date(), message });
-        } else {
-            console.error('Invalid log message');
+        const logMessage = `${new Date().toISOString()} - ${message}\n`;
+        this.rotateLogs();
+        fs.appendFileSync(this.logFile, logMessage);
+    }
+
+    rotateLogs() {
+        const stats = fs.existsSync(this.logFile) ? fs.statSync(this.logFile) : null;
+        if (stats && stats.size >= this.maxSize) {
+            const archivedFile = path.join(this.logDir, `app_${Date.now()}.log`);
+            fs.renameSync(this.logFile, archivedFile);
         }
-    }
-
-    validateInput(input) {
-        return typeof input === 'string' && input.trim() !== '';
-    }
-
-    getLogs() {
-        return this.logs;
     }
 }
 
-const logger = new Logger();
-
-// Example usage
-logger.log('User clicked button');
-logger.log(''); // This will be rejected
-console.log(logger.getLogs());
+module.exports = Logger;
