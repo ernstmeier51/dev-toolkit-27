@@ -1,37 +1,36 @@
-// Logger Utility to Optimize Performance
+class Logger {
+    constructor() {
+        this.logs = [];
+    }
 
-const logLevels = {
-    INFO: 'INFO',
-    WARN: 'WARN',
-    ERROR: 'ERROR'
-};
+    log(message) {
+        if (typeof message === 'string' && message.trim() !== '') {
+            const timestamp = new Date().toISOString();
+            this.logs.push(`[${timestamp}] ${message}`);
+            console.log(this.logs[this.logs.length - 1]);
+        } else {
+            console.error('Invalid log message. Must be a non-empty string.');
+        }
+    }
 
-let logs = [];
+    getLogs() {
+        return this.logs;
+    }
 
-function log(level, message) {
-    const timestamp = new Date().toISOString();
-    logs.push({ timestamp, level, message });
-    if (logs.length > 100) {
-        logs.shift(); // Keep only the last 100 logs
+    clearLogs() {
+        this.logs = [];
     }
 }
 
-function getLogs() {
-    return logs.slice(); // Return a copy of logs
-}
+const logger = new Logger();
 
-function clearLogs() {
-    logs = [];
+// Example usage in the main processing loop
+function mainLoop() {
+    for (let i = 0; i < 5; i++) {
+        logger.log(`Iteration ${i}`);
+        // Simulating a scenario with potential invalid log entries
+        logger.log(' '); // Invalid log
+    }
+    console.log('All logs:', logger.getLogs());
 }
-
-function getLastLog() {
-    return logs[logs.length - 1] || null;
-}
-
-module.exports = {
-    logLevels,
-    log,
-    getLogs,
-    clearLogs,
-    getLastLog
-};
+mainLoop();
