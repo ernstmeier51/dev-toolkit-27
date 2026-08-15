@@ -4,33 +4,25 @@ class Logger {
     }
 
     log(message) {
-        if (typeof message === 'string' && message.trim() !== '') {
-            const timestamp = new Date().toISOString();
-            this.logs.push(`[${timestamp}] ${message}`);
-            console.log(this.logs[this.logs.length - 1]);
+        if (this.validateInput(message)) {
+            this.logs.push({ timestamp: new Date(), message });
         } else {
-            console.error('Invalid log message. Must be a non-empty string.');
+            console.error('Invalid log message');
         }
+    }
+
+    validateInput(input) {
+        return typeof input === 'string' && input.trim() !== '';
     }
 
     getLogs() {
         return this.logs;
     }
-
-    clearLogs() {
-        this.logs = [];
-    }
 }
 
 const logger = new Logger();
 
-// Example usage in the main processing loop
-function mainLoop() {
-    for (let i = 0; i < 5; i++) {
-        logger.log(`Iteration ${i}`);
-        // Simulating a scenario with potential invalid log entries
-        logger.log(' '); // Invalid log
-    }
-    console.log('All logs:', logger.getLogs());
-}
-mainLoop();
+// Example usage
+logger.log('User clicked button');
+logger.log(''); // This will be rejected
+console.log(logger.getLogs());
