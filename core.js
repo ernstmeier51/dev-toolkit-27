@@ -1,31 +1,37 @@
-function autoclicker(interval, clicks) {
-    return new Promise((resolve) => {
-        let count = 0;
-        const clickInterval = setInterval(() => {
-            if (count < clicks) {
-                document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                count++;
-            } else {
-                clearInterval(clickInterval);
-                resolve('Finished clicking');
-            }
-        }, interval);
-    });
+class AutoClicker {
+    constructor(interval) {
+        this.interval = interval;
+        this.isActive = false;
+        this.clickArea = document.body;
+    }
+
+    start() {
+        if (!this.isActive) {
+            this.isActive = true;
+            this.clickLoop();
+        }
+    }
+
+    stop() {
+        this.isActive = false;
+    }
+
+    clickLoop() {
+        if (this.isActive) {
+            this.click();
+            setTimeout(() => this.clickLoop(), this.interval);
+        }
+    }
+
+    click() {
+        const event = new MouseEvent('click', { bubbles: true });
+        this.clickArea.dispatchEvent(event);
+    }
 }
 
-function stopAutoclicker(timeout) {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            clearInterval();
-            resolve('Autoclicker stopped after timeout');
-        }, timeout);
-    });
-}
+const clicker = new AutoClicker(1000);
+clicker.start();
 
-function setClickListener(callback) {
-    document.addEventListener('click', (event) => {
-        callback(event);
-    });
-}
-
-export { autoclicker, stopAutoclicker, setClickListener };
+window.addEventListener('beforeunload', () => {
+    clicker.stop();
+});
