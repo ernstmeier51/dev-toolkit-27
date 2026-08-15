@@ -1,32 +1,39 @@
-// Input validation utility functions
-function isValidInput(value) {
-    return typeof value === 'number' && value > 0;
-}
-
-function validateClickFrequency(frequency) {
-    if (!isValidInput(frequency)) {
-        throw new Error('Invalid click frequency. Must be a positive number.');
-    }
-    return frequency;
-}
-
-function validateClickDuration(duration) {
-    if (!isValidInput(duration)) {
-        throw new Error('Invalid click duration. Must be a positive number.');
-    }
-    return duration;
-}
-
-function processClick(frequency, duration) {
-    try {
-        const validFrequency = validateClickFrequency(frequency);
-        const validDuration = validateClickDuration(duration);
-        // Simulating click actions
-        console.log(`Simulating click every ${validFrequency} ms for ${validDuration} ms`);
-        // [Implement autoclick logic here] 
-    } catch (error) {
-        console.error(error.message);
+// @ts-check
+/**
+ * A utility function to simulate a mouse click.
+ * @param {Element} element - The DOM element to click.
+ * @returns {void}
+ */
+function simulateClick(element) {
+    if (element instanceof Element) {
+        const event = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        });
+        element.dispatchEvent(event);
+    } else {
+        console.error('Provided argument is not a valid DOM element');
     }
 }
 
-module.exports = { processClick };
+/**
+ * A utility function to generate a random integer within a given range.
+ * @param {number} min - The minimum integer value.
+ * @param {number} max - The maximum integer value.
+ * @returns {number} - A random integer between min and max.
+ */
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * A utility function to pause execution for a given duration.
+ * @param {number} ms - Duration in milliseconds.
+ * @returns {Promise<void>} - A promise that resolves after the specified duration.
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export { simulateClick, getRandomInt, sleep };
