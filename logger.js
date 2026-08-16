@@ -2,24 +2,42 @@ const fs = require('fs');
 const path = require('path');
 
 class Logger {
-    constructor(logDir) {
+    constructor(logDir, maxSize, maxFiles) {
         this.logDir = logDir;
-        this.logFile = path.join(logDir, 'app.log');
-        this.maxSize = 5 * 1024 * 1024; // 5 MB
+        this.maxSize = maxSize;
+        this.maxFiles = maxFiles;
+        this.currentLogFile = path.join(logDir, 'log.txt');
+        this.initLogDir();
+    }
+
+    initLogDir() {
+        if (!fs.existsSync(this.logDir)) {
+            fs.mkdirSync(this.logDir, { recursive: true });
+        }
     }
 
     log(message) {
-        const logMessage = `${new Date().toISOString()} - ${message}\n`;
-        this.rotateLogs();
-        fs.appendFileSync(this.logFile, logMessage);
+        this.checkLogSize();
+        const timestamp = new Date().toISOString();
+        fs.appendFileSync(this.currentLogFile, `${timestamp} - ${message}\n`);
+    }
+
+    checkLogSize() {
+        const stats = fs.statSync(this.currentLogFile);
+        if (stats.size >= this.maxSize) {
+            this.rotateLogs();
+        }
     }
 
     rotateLogs() {
-        const stats = fs.existsSync(this.logFile) ? fs.statSync(this.logFile) : null;
-        if (stats && stats.size >= this.maxSize) {
-            const archivedFile = path.join(this.logDir, `app_${Date.now()}.log`);
-            fs.renameSync(this.logFile, archivedFile);
+        for (let i = this.maxFiles - 1; i > 0; i--) {
+            const srcPath = path.join(this.logDir, `log.${i - 1}.txt`);
+            const destPath = path.join(this.logDir, `log.${i}.txt`);
+            if (fs.existsSync(srcPath)) {
+                fs.renameSync(srcPath, destPath);
+            }
         }
+        fs.renameSync(this.currentLogFile, path.join(this.logDir, 'log.0.txt'));
     }
 }
 
