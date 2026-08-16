@@ -1,1 +1,36 @@
-class AutoClicker { constructor(interval, count) { this.interval = interval; this.count = count; this.validateInput(); this.clickCount = 0; } validateInput() { if (typeof this.interval !== 'number' || this.interval <= 0) { throw new Error('Interval must be a positive number'); } if (typeof this.count !== 'number' || this.count <= 0) { throw new Error('Count must be a positive number'); } } start() { const click = () => { if (this.clickCount < this.count) { // Simulating click action console.log('Click!'); this.clickCount++; setTimeout(click, this.interval); } }; setTimeout(click, this.interval); } } const myAutoClicker = new AutoClicker(1000, 5); myAutoClicker.start();
+class AutoClicker {
+    constructor(interval) {
+        this.interval = this.validateInterval(interval);
+        this.clicking = false;
+    }
+
+    validateInterval(interval) {
+        if (typeof interval !== 'number' || interval <= 0) {
+            throw new Error('Invalid interval: Must be a positive number.');
+        }
+        return interval;
+    }
+
+    start() {
+        if (this.clicking) return;
+        this.clicking = true;
+        this.clickLoop();
+    }
+
+    stop() {
+        this.clicking = false;
+    }
+
+    clickLoop() {
+        if (!this.clicking) return;
+        this.simulateClick();
+        setTimeout(() => this.clickLoop(), this.interval);
+    }
+
+    simulateClick() {
+        console.log('Click simulated!');
+    }
+}
+
+const clicker = new AutoClicker(1000);
+clicker.start();
