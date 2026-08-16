@@ -1,36 +1,29 @@
 class AutoClicker {
     constructor(interval) {
-        this.interval = this.validateInterval(interval);
-        this.clicking = false;
+        this.interval = interval;
     }
 
-    validateInterval(interval) {
-        if (typeof interval !== 'number' || interval <= 0) {
-            throw new Error('Invalid interval: Must be a positive number.');
+    startClicking() {
+        this.validateInterval();
+        this.clickInterval = setInterval(() => this.performClick(), this.interval);
+    }
+
+    performClick() {
+        // Simulate a click event
+        console.log('Click!');
+    }
+
+    validateInterval() {
+        if (typeof this.interval !== 'number' || this.interval <= 0) {
+            throw new Error('Invalid interval: must be a positive number.');
         }
-        return interval;
     }
 
-    start() {
-        if (this.clicking) return;
-        this.clicking = true;
-        this.clickLoop();
-    }
-
-    stop() {
-        this.clicking = false;
-    }
-
-    clickLoop() {
-        if (!this.clicking) return;
-        this.simulateClick();
-        setTimeout(() => this.clickLoop(), this.interval);
-    }
-
-    simulateClick() {
-        console.log('Click simulated!');
+    stopClicking() {
+        clearInterval(this.clickInterval);
     }
 }
 
 const clicker = new AutoClicker(1000);
-clicker.start();
+clicker.startClicking();
+setTimeout(() => clicker.stopClicking(), 5000);
