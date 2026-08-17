@@ -1,1 +1,40 @@
-function validateInput(input) {  if (typeof input !== 'number' || input <= 0) {    throw new Error('Input must be a positive number');  }  return true;}function autoClicker(interval, count) {  try {    validateInput(interval);    validateInput(count);    let clicks = 0;    const click = () => {      if (clicks < count) {        console.log('Click!');        clicks++;        setTimeout(click, interval);      } else {        console.log('Finished clicking!');      }    };    click();  } catch (error) {    console.error(error.message);  }}export { autoClicker };
+class AutoClicker {
+    constructor(interval) {
+        this.interval = interval;
+        this.clicks = [];
+        this.isActive = false;
+    }
+
+    start() {
+        this.isActive = true;
+        this.run();
+    }
+
+    stop() {
+        this.isActive = false;
+        clearTimeout(this.timeout);
+    }
+
+    async run() {
+        while (this.isActive) {
+            this.click();
+            await this.delay(this.interval);
+        }
+    }
+
+    click() {
+        const clickEvent = new MouseEvent('click');
+        document.dispatchEvent(clickEvent);
+        this.clicks.push(Date.now());
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+}
+
+const autoClicker = new AutoClicker(1000);
+
+window.addEventListener('load', () => {
+    autoClicker.start();
+});
