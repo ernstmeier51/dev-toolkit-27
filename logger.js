@@ -1,31 +1,21 @@
 class Logger {
     constructor() {
         this.logs = [];
+        this.startTime = Date.now();
     }
-
-    info(message) {
-        this.logs.push({ type: 'INFO', message, timestamp: new Date() });
-        this.printLog('INFO', message);
+    log(message) {
+        const timestamp = Date.now() - this.startTime;
+        this.logs.push({ message, timestamp });
+        console.log(`[${timestamp}ms] ${message}`);
     }
-
-    warn(message) {
-        this.logs.push({ type: 'WARN', message, timestamp: new Date() });
-        this.printLog('WARN', message);
-    }
-
     error(message) {
-        this.logs.push({ type: 'ERROR', message, timestamp: new Date() });
-        this.printLog('ERROR', message);
+        const timestamp = Date.now() - this.startTime;
+        this.logs.push({ message: 'ERROR: ' + message, timestamp });
+        console.error(`[${timestamp}ms] ERROR: ${message}`);
     }
-
-    printLog(type, message) {
-        console.log(`[${type}] ${message}`);
-    }
-
     getLogs() {
         return this.logs;
     }
-
     clearLogs() {
         this.logs = [];
     }
