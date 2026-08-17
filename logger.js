@@ -1,44 +1,35 @@
-const fs = require('fs');
-const path = require('path');
-
 class Logger {
-    constructor(logDir, maxSize, maxFiles) {
-        this.logDir = logDir;
-        this.maxSize = maxSize;
-        this.maxFiles = maxFiles;
-        this.currentLogFile = path.join(logDir, 'log.txt');
-        this.initLogDir();
+    constructor() {
+        this.logs = [];
     }
 
-    initLogDir() {
-        if (!fs.existsSync(this.logDir)) {
-            fs.mkdirSync(this.logDir, { recursive: true });
-        }
+    info(message) {
+        this.logs.push({ type: 'INFO', message, timestamp: new Date() });
+        this.printLog('INFO', message);
     }
 
-    log(message) {
-        this.checkLogSize();
-        const timestamp = new Date().toISOString();
-        fs.appendFileSync(this.currentLogFile, `${timestamp} - ${message}\n`);
+    warn(message) {
+        this.logs.push({ type: 'WARN', message, timestamp: new Date() });
+        this.printLog('WARN', message);
     }
 
-    checkLogSize() {
-        const stats = fs.statSync(this.currentLogFile);
-        if (stats.size >= this.maxSize) {
-            this.rotateLogs();
-        }
+    error(message) {
+        this.logs.push({ type: 'ERROR', message, timestamp: new Date() });
+        this.printLog('ERROR', message);
     }
 
-    rotateLogs() {
-        for (let i = this.maxFiles - 1; i > 0; i--) {
-            const srcPath = path.join(this.logDir, `log.${i - 1}.txt`);
-            const destPath = path.join(this.logDir, `log.${i}.txt`);
-            if (fs.existsSync(srcPath)) {
-                fs.renameSync(srcPath, destPath);
-            }
-        }
-        fs.renameSync(this.currentLogFile, path.join(this.logDir, 'log.0.txt'));
+    printLog(type, message) {
+        console.log(`[${type}] ${message}`);
+    }
+
+    getLogs() {
+        return this.logs;
+    }
+
+    clearLogs() {
+        this.logs = [];
     }
 }
 
-module.exports = Logger;
+const logger = new Logger();
+module.exports = logger;
