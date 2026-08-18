@@ -1,40 +1,36 @@
-class AutoClicker {
-    constructor(interval) {
-        this.interval = interval;
-        this.clicks = [];
-        this.isActive = false;
-    }
+// Autoclicker core functionality
+/**
+ * @typedef {Object} ClickOptions
+ * @property {number} interval - Time interval between clicks in milliseconds.
+ * @property {number} count - Number of clicks to perform.
+ */
 
-    start() {
-        this.isActive = true;
-        this.run();
-    }
-
-    stop() {
-        this.isActive = false;
-        clearTimeout(this.timeout);
-    }
-
-    async run() {
-        while (this.isActive) {
-            this.click();
-            await this.delay(this.interval);
+/**
+ * @param {ClickOptions} options - Configuration for the autoclicker.
+ */
+function startAutoClicker(options) {
+    const { interval, count } = options;
+    let clicksPerformed = 0;
+    const clickInterval = setInterval(() => {
+        if (clicksPerformed < count) {
+            document.body.click(); // Simulate a click
+            clicksPerformed++;
+            console.log(`Click ${clicksPerformed}`);
+        } else {
+            clearInterval(clickInterval);
+            console.log('Autoclicker stopped.');
         }
-    }
-
-    click() {
-        const clickEvent = new MouseEvent('click');
-        document.dispatchEvent(clickEvent);
-        this.clicks.push(Date.now());
-    }
-
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    }, interval);
 }
 
-const autoClicker = new AutoClicker(1000);
+/**
+ * @param {number} count - Number of clicks to perform.
+ * @param {number} interval - Time interval between clicks in milliseconds.
+ */
+function initAutoClicker(count, interval) {
+    const options = { count, interval };
+    startAutoClicker(options);
+}
 
-window.addEventListener('load', () => {
-    autoClicker.start();
-});
+// Example usage
+initAutoClicker(10, 1000); // 10 clicks every second
