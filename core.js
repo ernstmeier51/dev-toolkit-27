@@ -1,31 +1,33 @@
 class AutoClicker {
-    constructor(interval) {
+    constructor(target, interval) {
+        this.target = target;
         this.interval = interval;
-        this.clicking = false;
         this.clickInterval = null;
     }
     start() {
-        if (!this.clicking) {
-            this.clicking = true;
-            this.clickInterval = setInterval(() => this.click(), this.interval);
-        }
+        if (this.clickInterval) return;
+        this.clickInterval = setInterval(() => {
+            this.target.click();
+        }, this.interval);
     }
     stop() {
-        if (this.clicking) {
-            this.clicking = false;
-            clearInterval(this.clickInterval);
-        }
+        clearInterval(this.clickInterval);
+        this.clickInterval = null;
     }
-    click() {
-        const event = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-        });
-        document.body.dispatchEvent(event);
+    updateInterval(newInterval) {
+        this.stop();
+        this.interval = newInterval;
+        this.start();
+    }
+    getStatus() {
+        return this.clickInterval ? 'Running' : 'Stopped';
     }
 }
 
-const clicker = new AutoClicker(1000);
-clicker.start();
-setTimeout(() => clicker.stop(), 10000);
+function initializeAutoClicker(targetSelector, interval) {
+    const targetElement = document.querySelector(targetSelector);
+    if (!targetElement) {
+        throw new Error('Target element not found');
+    }
+    return new AutoClicker(targetElement, interval);
+}
