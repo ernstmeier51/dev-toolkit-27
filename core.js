@@ -1,36 +1,37 @@
-// Autoclicker core functionality
-/**
- * @typedef {Object} ClickOptions
- * @property {number} interval - Time interval between clicks in milliseconds.
- * @property {number} count - Number of clicks to perform.
- */
+// AutoClicker Data Handler
+class AutoClickerData {
+    constructor() {
+        this.clicks = [];
+        this.sessionData = {};
+    }
 
-/**
- * @param {ClickOptions} options - Configuration for the autoclicker.
- */
-function startAutoClicker(options) {
-    const { interval, count } = options;
-    let clicksPerformed = 0;
-    const clickInterval = setInterval(() => {
-        if (clicksPerformed < count) {
-            document.body.click(); // Simulate a click
-            clicksPerformed++;
-            console.log(`Click ${clicksPerformed}`);
-        } else {
-            clearInterval(clickInterval);
-            console.log('Autoclicker stopped.');
+    recordClick(x, y) {
+        this.clicks.push({ x, y, timestamp: Date.now() });
+    }
+
+    startSession(sessionId) {
+        this.sessionData[sessionId] = { clicks: [], startTime: Date.now() };
+    }
+
+    endSession(sessionId) {
+        if (this.sessionData[sessionId]) {
+            this.sessionData[sessionId].endTime = Date.now();
+            this.sessionData[sessionId].duration = this.sessionData[sessionId].endTime - this.sessionData[sessionId].startTime;
         }
-    }, interval);
+    }
+
+    getSessionData(sessionId) {
+        return this.sessionData[sessionId] || null;
+    }
+
+    getAllClicks() {
+        return this.clicks;
+    }
+
+    clearClicks() {
+        this.clicks = [];
+    }
 }
 
-/**
- * @param {number} count - Number of clicks to perform.
- * @param {number} interval - Time interval between clicks in milliseconds.
- */
-function initAutoClicker(count, interval) {
-    const options = { count, interval };
-    startAutoClicker(options);
-}
-
-// Example usage
-initAutoClicker(10, 1000); // 10 clicks every second
+const autoclickerData = new AutoClickerData();
+export default autoclickerData;
