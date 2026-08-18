@@ -1,37 +1,31 @@
-// AutoClicker Data Handler
-class AutoClickerData {
-    constructor() {
-        this.clicks = [];
-        this.sessionData = {};
+class AutoClicker {
+    constructor(interval) {
+        this.interval = interval;
+        this.clicking = false;
+        this.clickInterval = null;
     }
-
-    recordClick(x, y) {
-        this.clicks.push({ x, y, timestamp: Date.now() });
-    }
-
-    startSession(sessionId) {
-        this.sessionData[sessionId] = { clicks: [], startTime: Date.now() };
-    }
-
-    endSession(sessionId) {
-        if (this.sessionData[sessionId]) {
-            this.sessionData[sessionId].endTime = Date.now();
-            this.sessionData[sessionId].duration = this.sessionData[sessionId].endTime - this.sessionData[sessionId].startTime;
+    start() {
+        if (!this.clicking) {
+            this.clicking = true;
+            this.clickInterval = setInterval(() => this.click(), this.interval);
         }
     }
-
-    getSessionData(sessionId) {
-        return this.sessionData[sessionId] || null;
+    stop() {
+        if (this.clicking) {
+            this.clicking = false;
+            clearInterval(this.clickInterval);
+        }
     }
-
-    getAllClicks() {
-        return this.clicks;
-    }
-
-    clearClicks() {
-        this.clicks = [];
+    click() {
+        const event = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        });
+        document.body.dispatchEvent(event);
     }
 }
 
-const autoclickerData = new AutoClickerData();
-export default autoclickerData;
+const clicker = new AutoClicker(1000);
+clicker.start();
+setTimeout(() => clicker.stop(), 10000);
