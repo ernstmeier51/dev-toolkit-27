@@ -1,39 +1,36 @@
-// @ts-check
-/**
- * A utility function to simulate a mouse click.
- * @param {Element} element - The DOM element to click.
- * @returns {void}
- */
-function simulateClick(element) {
-    if (element instanceof Element) {
-        const event = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-        });
-        element.dispatchEvent(event);
-    } else {
-        console.error('Provided argument is not a valid DOM element');
-    }
-}
-
-/**
- * A utility function to generate a random integer within a given range.
- * @param {number} min - The minimum integer value.
- * @param {number} max - The maximum integer value.
- * @returns {number} - A random integer between min and max.
- */
-function getRandomInt(min, max) {
+function randomDelay(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-/**
- * A utility function to pause execution for a given duration.
- * @param {number} ms - Duration in milliseconds.
- * @returns {Promise<void>} - A promise that resolves after the specified duration.
- */
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+function clickAtRandomInterval(element, minDelay, maxDelay, count) {
+    let currentClick = 0;
+    const clickInterval = setInterval(() => {
+        if (currentClick < count) {
+            element.click();
+            currentClick++;
+        } else {
+            clearInterval(clickInterval);
+        }
+    }, randomDelay(minDelay, maxDelay));
 }
 
-export { simulateClick, getRandomInt, sleep };
+function createClickEvent(x, y) {
+    const event = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: y
+    });
+    return event;
+}
+
+function simulateClicks(element, positions) {
+    positions.forEach(pos => {
+        const event = createClickEvent(pos.x, pos.y);
+        element.dispatchEvent(event);
+    });
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
