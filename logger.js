@@ -1,40 +1,49 @@
+const fs = require('fs');
+const path = require('path');
+
 class Logger {
-    constructor() {
-        this.logs = [];
+    constructor(logDir, maxSize, maxFiles) {
+        this.logDir = logDir;
+        this.maxSize = maxSize;
+        this.maxFiles = maxFiles;
+        this.currentLogFile = path.join(logDir, 'current.log');
+        this.createLogDirectory();
     }
 
-    info(message) {
-        this.logs.push({ level: 'INFO', message, timestamp: new Date() });
-        console.log(`[INFO] ${message}`);
+    createLogDirectory() {
+        if (!fs.existsSync(this.logDir)) {
+            fs.mkdirSync(this.logDir, { recursive: true });
+        }
     }
 
-    error(message) {
-        this.logs.push({ level: 'ERROR', message, timestamp: new Date() });
-        console.error(`[ERROR] ${message}`);
+    log(message) {
+        const timestamp = new Date().toISOString();
+        const logMessage = `${timestamp} - ${message}\n`;
+        fs.appendFileSync(this.currentLogFile, logMessage);
+        this.checkLogSize();
     }
 
-    getLogs() {
-        return this.logs;
+    checkLogSize() {
+        const stats = fs.statSync(this.currentLogFile);
+        if (stats.size > this.maxSize) {
+            this.rotateLog();
+        }
+    }
+
+    rotateLog() {
+        const date = new Date().toISOString().split('T')[0];
+        const newLogFile = path.join(this.logDir, `${date}.log`);
+        fs.renameSync(this.currentLogFile, newLogFile);
+        this.cleanupOldLogs();
+    }
+
+    cleanupOldLogs() {
+        const files = fs.readdirSync(this.logDir).filter(file => file.endsWith('.log'));
+        if (files.length > this.maxFiles) {
+            const oldestFile = files.sort().slice(0, files.length - this.maxFiles);
+            oldestFile.forEach(file => fs.unlinkSync(path.join(this.logDir, file)));
+        }
     }
 }
 
-const logger = new Logger();
-
-const retryOperation = async (operation, retries = 3, delay = 1000) => {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const result = await operation();
-            logger.info(`Operation succeeded on attempt ${i + 1}`);
-            return result;
-        } catch (error) {
-            logger.error(`Attempt ${i + 1} failed: ${error.message}`);
-            if (i < retries - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-            } else {
-                throw new Error('All attempts failed');
-            }
-        }
-    }
-};
-
-export { logger, retryOperation };
+module.exports = Logger;
