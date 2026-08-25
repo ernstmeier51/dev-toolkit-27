@@ -1,75 +1,42 @@
-function getRandomDelay(min, max) {
-  return Math.random() * (max - min) + min;
-}
-function createMouseEvent(x, y) {
-  return new MouseEvent('click', {
-    view: window,
-    bubbles: true,
-    cancelable: true,
-    clientX: x,
-    clientY: y
-  });
-}
-function getElementPosition(element) {
-  const rect = element.getBoundingClientRect();
-  return {
-    x: rect.left + (Math.random() * rect.width),
-    y: rect.top + (Math.random() * rect.height)
-  };
-}
-function* generateClickPositions(element, count) {
-  for (let i = 0; i < count; i++) {
-    yield getElementPosition(element);
-  }
-}
-function setupClickHandler(selector, options) {
-  const element = document.querySelector(selector);
-  if (!element) {
-    return { start: () => {}, stop: () => {} };
-  }
-  const { minDelay = 50, maxDelay = 300, totalClicks = 50 } = options;
-  let active = false;
-  let timer = null;
-  const positionGen = generateClickPositions(element, totalClicks);
-  function executeClick() {
-    if (!active) return;
-    const next = positionGen.next();
-    if (next.done) {
-      active = false;
-      return;
-    }
-    const pos = next.value;
-    const event = createMouseEvent(pos.x, pos.y);
-    element.dispatchEvent(event);
-    const delay = getRandomDelay(minDelay, maxDelay);
-    timer = setTimeout(executeClick, delay);
-  }
-  return {
-    start() {
-      if (active) return;
-      active = true;
-      executeClick();
-    },
-    stop() {
-      active = false;
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
+const handler = {
+  async retryOperation(operationFn, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await operationFn();
+        return result;
+      } catch (error) {
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        const backoff = 1000 * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, backoff));
       }
-    },
-    isActive() {
-      return active;
     }
-  };
-}
-function simulateAdditionalAction(actionType) {
-  if (actionType === 'key') {
-    const keyEvent = new KeyboardEvent('keypress', { key: 'Enter' });
-    document.dispatchEvent(keyEvent);
+  },
+  async networkHandler(endpoint) {
+    const fetchOperation = async () => {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) {
+        throw new Error('HTTP error! status: ' + response.status);
+      }
+      return await response.json();
+    };
+    return this.retryOperation(fetchOperation);
+  }
+};
+
+async function syncWithServer() {
+  try {
+    const data = await handler.networkHandler('https://dev-toolkit-27.example/api/clicks');
+    console.log('Synced click data successfully');
+    return data;
+  } catch (e) {
+    console.error('Network sync failed permanently');
+    throw e;
   }
 }
-const clickHandler = {
-  setup: setupClickHandler,
-  randomDelay: getRandomDelay,
-  createEvent: createMouseEvent
-};
+
+module.exports = { handler, syncWithServer };
