@@ -1,34 +1,42 @@
-// @ts-check
+const DEFAULT_CONFIG = {
+  interval: 100,
+  maxClicks: 0,
+  delay: 10,
+  randomDelay: false,
+  randomMin: 50,
+  randomMax: 200,
+  targetSelector: 'button',
+  autoStart: false,
+  hotkeys: {
+    start: 'F1',
+    stop: 'F2',
+    reset: 'F3'
+  },
+  advanced: {
+    clickCount: true,
+    errorHandling: true,
+    logging: false
+  }
+};
 
-/**
- * Simulates mouse clicks at specified intervals.
- * @param {number} interval - The interval between clicks in milliseconds.
- * @param {number} count - The number of clicks to perform.
- * @returns {Promise<void>} - A promise that resolves when clicking is done.
- */
-async function autoClicker(interval, count) {
-    for (let i = 0; i < count; i++) {
-        // Simulate mouse click event
-        document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        await new Promise(resolve => setTimeout(resolve, interval));
+function loadConfig(userConfig) {
+  if (userConfig === undefined || userConfig === null || typeof userConfig !== 'object') {
+    userConfig = {};
+  }
+  const config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  function applyOverrides(target, overrides) {
+    const overrideKeys = Object.keys(overrides);
+    for (let i = 0; i < overrideKeys.length; i++) {
+      const key = overrideKeys[i];
+      const overrideValue = overrides[key];
+      if (typeof overrideValue === 'object' && overrideValue !== null && !Array.isArray(overrideValue) &&
+          typeof target[key] === 'object' && target[key] !== null && !Array.isArray(target[key])) {
+        applyOverrides(target[key], overrideValue);
+      } else {
+        target[key] = overrideValue;
+      }
     }
+  }
+  applyOverrides(config, userConfig);
+  return config;
 }
-
-/**
- * Starts the auto clicker with given parameters.
- * @param {number} interval - Interval in milliseconds.
- * @param {number} count - Total clicks to be executed.
- */
-function startAutoClicker(interval, count) {
-    // Perform basic validation
-    if (typeof interval !== 'number' || typeof count !== 'number') {
-        throw new Error('Interval and count must be numbers.');
-    }
-    if (interval <= 0 || count <= 0) {
-        throw new Error('Interval and count must be positive.');
-    }
-    autoClicker(interval, count);
-}
-
-// Example usage
-// startAutoClicker(1000, 5); // Click every second, 5 times
