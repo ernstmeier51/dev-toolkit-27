@@ -1,49 +1,53 @@
 const fs = require('fs');
 const path = require('path');
-
-class Logger {
-    constructor(logDir, maxSize, maxFiles) {
-        this.logDir = logDir;
-        this.maxSize = maxSize;
-        this.maxFiles = maxFiles;
-        this.currentLogFile = path.join(logDir, 'current.log');
-        this.createLogDirectory();
+function setupLogger(options = {}) {
+  const logDir = options.logDir || './logs';
+  const maxSize = options.maxSize || 1024 * 1024;
+  const maxFiles = options.maxFiles || 5;
+  const baseName = options.baseName || 'autoclicker';
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+  let currentFile = path.join(logDir, baseName + '.log');
+  let stream = fs.createWriteStream(currentFile, { flags: 'a' });
+  function rotate() {
+    if (stream) stream.end();
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const rotatedFile = path.join(logDir, `${baseName}-${ts}.log`);
+    if (fs.existsSync(currentFile)) {
+      fs.renameSync(currentFile, rotatedFile);
     }
-
-    createLogDirectory() {
-        if (!fs.existsSync(this.logDir)) {
-            fs.mkdirSync(this.logDir, { recursive: true });
-        }
+    const allLogs = fs.readdirSync(logDir)
+      .filter(name => name.startsWith(baseName) && name.endsWith('.log'))
+      .map(name => ({ name, time: fs.statSync(path.join(logDir, name)).mtime.getTime() }))
+      .sort((a, b) => b.time - a.time);
+    if (allLogs.length > maxFiles) {
+      allLogs.slice(maxFiles).forEach(item => fs.unlinkSync(path.join(logDir, item.name)));
     }
-
-    log(message) {
-        const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} - ${message}\n`;
-        fs.appendFileSync(this.currentLogFile, logMessage);
-        this.checkLogSize();
+    currentFile = path.join(logDir, baseName + '.log');
+    stream = fs.createWriteStream(currentFile, { flags: 'a' });
+  }
+  const monitor = setInterval(() => {
+    if (fs.existsSync(currentFile) && fs.statSync(currentFile).size >= maxSize) {
+      rotate();
     }
-
-    checkLogSize() {
-        const stats = fs.statSync(this.currentLogFile);
-        if (stats.size > this.maxSize) {
-            this.rotateLog();
-        }
+  }, 20000);
+  return {
+    log: function(msg) {
+      const line = new Date().toISOString() + ' [LOG] ' + msg + '\n';
+      stream.write(line);
+      console.log(line.trim());
+    },
+    error: function(msg) {
+      const line = new Date().toISOString() + ' [ERR] ' + msg + '\n';
+      stream.write(line);
+      console.error(line.trim());
+    },
+    forceRotate: rotate,
+    shutdown: function() {
+      clearInterval(monitor);
+      stream.end();
     }
-
-    rotateLog() {
-        const date = new Date().toISOString().split('T')[0];
-        const newLogFile = path.join(this.logDir, `${date}.log`);
-        fs.renameSync(this.currentLogFile, newLogFile);
-        this.cleanupOldLogs();
-    }
-
-    cleanupOldLogs() {
-        const files = fs.readdirSync(this.logDir).filter(file => file.endsWith('.log'));
-        if (files.length > this.maxFiles) {
-            const oldestFile = files.sort().slice(0, files.length - this.maxFiles);
-            oldestFile.forEach(file => fs.unlinkSync(path.join(this.logDir, file)));
-        }
-    }
+  };
 }
-
-module.exports = Logger;
+module.exports = { setupLogger };
