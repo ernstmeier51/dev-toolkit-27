@@ -1,77 +1,72 @@
-const autoclickConfig = new Proxy({
-  intervalMs: 1000,
-  maxAttempts: 50,
-  targetId: 'clickTarget',
-  logLevel: 'info'
-}, {
-  set(obj, key, val) {
-    if (key === 'intervalMs') {
-      if (typeof val !== 'number' || val < 10) {
-        console.warn('Edge case: invalid interval, defaulting to 100');
-        obj[key] = 100;
-        return true;
-      }
+const defaultConfig = {
+  target: '',
+  clicks: 0,
+  delay: 0
+};
+
+function validateInput(input, type, min, max) {
+  if (type === 'string') {
+    if (typeof input !== 'string' || input.length === 0) {
+      return false;
     }
-    if (key === 'maxAttempts') {
-      if (typeof val !== 'number' || val < 1) {
-        console.warn('Edge case: invalid max attempts, defaulting to 10');
-        obj[key] = 10;
-        return true;
-      }
-    }
-    obj[key] = val;
     return true;
-  },
-  get(obj, key) {
-    if (key in obj) {
-      return obj[key];
-    }
-    console.warn('Edge case: unknown config key accessed, returning default');
-    return 0;
   }
-});
-function runAutoclicker(overrides = {}) {
-  try {
-    for (const [key, val] of Object.entries(overrides)) {
-      autoclickConfig[key] = val;
+  if (type === 'number') {
+    if (typeof input !== 'number' || isNaN(input)) {
+      return false;
     }
-    const interval = autoclickConfig.intervalMs;
-    const max = autoclickConfig.maxAttempts;
-    let count = 0;
-    console.log('Autoclicker started with interval:', interval, 'max:', max);
-    const id = setInterval(() => {
-      try {
-        if (count >= max) {
-          clearInterval(id);
-          console.log('Autoclicker finished normally');
-          return;
-        }
-        const target = {
-          performClick: function() {
-            console.log('Clicked ' + autoclickConfig.targetId + ' at count ' + (count + 1));
-          }
-        };
-        if (autoclickConfig.logLevel === 'debug') {
-          console.log('Debug info: current count', count);
-        }
-        target.performClick();
-        count++;
-      } catch (e) {
-        console.error('Error in click loop:', e.message);
-        count++;
-        if (count >= max) {
-          clearInterval(id);
-        }
-      }
-    }, interval);
-    return id;
-  } catch (e) {
-    console.error('Critical error starting autoclicker:', e.message);
-    return null;
+    if (min !== undefined && input < min) {
+      return false;
+    }
+    if (max !== undefined && input > max) {
+      return false;
+    }
+    return true;
   }
+  return false;
 }
-const timer = runAutoclicker({intervalMs: 5, maxAttempts: 0, logLevel: 'debug'});
-setTimeout(() => {
-  if (timer) clearInterval(timer);
-  console.log('Demo stopped');
-}, 3000);
+
+function mainProcessingLoop(config) {
+  let target = config.target || defaultConfig.target;
+  let clicks = config.clicks || defaultConfig.clicks;
+  let delay = config.delay || defaultConfig.delay;
+  if (!validateInput(target, 'string')) {
+    console.error('Input validation failed: target must be non-empty string');
+    return;
+  }
+  if (!validateInput(clicks, 'number', 1, 500)) {
+    console.error('Input validation failed: clicks must be number 1-500');
+    return;
+  }
+  if (!validateInput(delay, 'number', 10, 10000)) {
+    console.error('Input validation failed: delay must be number 10-10000');
+    return;
+  }
+  let clickCount = 0;
+  const processClick = () => {
+    clickCount++;
+    const isTargetValid = validateInput(target, 'string') && (target.includes('button') || target.includes('link'));
+    if (!isTargetValid) {
+      console.log('Validation error in loop: target no longer valid');
+      return;
+    }
+    if (!validateInput(clickCount, 'number', 1, clicks)) {
+      console.log('Validation error in loop: click count out of range');
+      return;
+    }
+    if (clickCount > clicks) {
+      console.log('Main processing loop completed. Total clicks:', clicks);
+      return;
+    }
+    const clickPosition = Math.floor(Math.random() * 100) + 1;
+    console.log(`Autoclicker action: target=${target} click#=${clickCount} pos=${clickPosition} delay=${delay}`);
+    setTimeout(processClick, delay);
+  };
+  processClick();
+}
+
+module.exports = {
+  defaultConfig,
+  validateInput,
+  mainProcessingLoop
+};
