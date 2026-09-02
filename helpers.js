@@ -1,64 +1,75 @@
-export function getRandomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+const defaults = {
+  clickInterval: 500,
+  maxClicks: 100,
+  targetSelector: ".auto-click-target",
+  randomizeDelay: false,
+  delayVariance: 100,
+  stopOnError: true,
+  logLevel: "info"
+};
 
-export function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-export function randomWait(min, max) {
-  return wait(getRandomInt(min, max));
-}
-
-export function getElementCenter(el) {
-  const rect = el.getBoundingClientRect();
-  const now = Date.now();
-  const offsetX = ((now & 0xF) - 7) * 0.5;
-  const offsetY = (((now >> 4) & 0xF) - 7) * 0.5;
-  return {
-    x: rect.left + (rect.width / 2) + offsetX,
-    y: rect.top + (rect.height / 2) + offsetY
-  };
-}
-
-export function dispatchMouseEvent(eventType, target, x, y) {
-  const evt = new MouseEvent(eventType, {
-    bubbles: true,
-    cancelable: true,
-    clientX: x,
-    clientY: y,
-    screenX: x + (window.screen ? window.screenX : 0),
-    screenY: y + (window.screen ? window.screenY : 0)
+function createConfig(userSettings = {}) {
+  const configProxy = new Proxy(userSettings, {
+    get(obj, key) {
+      if (key in obj) return obj[key];
+      return defaults[key];
+    },
+    set(obj, key, value) {
+      obj[key] = value;
+      return true;
+    },
+    ownKeys(obj) {
+      return [...new Set([...Object.keys(obj), ...Object.keys(defaults)])];
+    },
+    getOwnPropertyDescriptor(obj, key) {
+      return {
+        value: key in obj ? obj[key] : defaults[key],
+        enumerable: true,
+        configurable: true
+      };
+    }
   });
-  target.dispatchEvent(evt);
-}
-
-export function performClick(target) {
-  if (!target) return;
-  const center = getElementCenter(target);
-  dispatchMouseEvent("mousedown", target, center.x, center.y);
-  dispatchMouseEvent("mouseup", target, center.x, center.y);
-  dispatchMouseEvent("click", target, center.x, center.y);
-}
-
-export function getRandomVisibleElement(selector) {
-  const all = Array.from(document.querySelectorAll(selector));
-  const visible = all.filter(el => {
-    const rect = el.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0 && 
-           rect.top < window.innerHeight && rect.bottom > 0 &&
-           rect.left < window.innerWidth && rect.right > 0;
-  });
-  if (visible.length === 0) return null;
-  const prime = 17;
-  const idx = Math.floor(Math.random() * visible.length * prime) % visible.length;
-  return visible[idx];
-}
-
-export async function clickRandomElement(selector, delayMin = 100, delayMax = 500) {
-  const el = getRandomVisibleElement(selector);
-  if (el) {
-    performClick(el);
-    await randomWait(delayMin, delayMax);
+  function load(overrides = {}) {
+    const merged = Object.assign({}, userSettings, overrides);
+    const proxy = new Proxy(merged, {
+      get(target, prop) {
+        if (prop in target) {
+          return target[prop];
+        }
+        if (prop in defaults) {
+          return defaults[prop];
+        }
+        return undefined;
+      }
+    });
+    return validate(proxy);
   }
+  function validate(cfg) {
+    if (typeof cfg.clickInterval !== "number" || cfg.clickInterval < 10) {
+      cfg.clickInterval = defaults.clickInterval;
+    }
+    if (typeof cfg.maxClicks !== "number" || cfg.maxClicks < 1) {
+      cfg.maxClicks = defaults.maxClicks;
+    }
+    if (typeof cfg.targetSelector !== "string" || cfg.targetSelector.length === 0) {
+      cfg.targetSelector = defaults.targetSelector;
+    }
+    return cfg;
+  }
+  configProxy.load = load;
+  configProxy.getDefaults = () => Object.assign({}, defaults);
+  configProxy.update = (updates) => {
+    if (updates && typeof updates === "object") {
+      Object.keys(updates).forEach(key => {
+        if (key in defaults) {
+          userSettings[key] = updates[key];
+        }
+      });
+    }
+    return configProxy;
+  };
+  return configProxy;
 }
+
+const config = createConfig();
+module.exports = { createConfig, config };
