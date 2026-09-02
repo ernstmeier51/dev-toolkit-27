@@ -1,60 +1,61 @@
-const createNetworkRetry = (retries = 4) => {
-  const fibDelay = (n) => {
-    if (n <= 1) return 100;
-    let a = 100, b = 200;
-    for (let i = 2; i <= n; i++) {
-      const next = a + b;
-      a = b;
-      b = next;
-    }
-    return b;
-  };
-  return async (operation) => {
-    let attempt = 0;
-    while (attempt < retries) {
-      try {
-        return await operation();
-      } catch (err) {
-        attempt++;
-        if (attempt >= retries) {
-          throw new Error(`Network op failed after ${retries} attempts: ${err.message}`);
-        }
-        const delay = fibDelay(attempt) + Math.random() * 150;
-        await new Promise((res) => setTimeout(res, delay));
-      }
-    }
-  };
-};
-
-const autoclickNetworkHandler = async (endpoint, clickData) => {
-  const retryOp = createNetworkRetry(3);
-  const doFetch = async () => {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'autoclick', ...clickData }),
-      headers: { 'Content-Type': 'application/json' }
+const AutoclickerHandler = {
+  state: { active: false, clicks: 0, intervalId: null, targetSelector: null, clickInterval: 500, maxClicks: 100 },
+  init(config) {
+    this.state.targetSelector = config.selector || 'button';
+    this.state.clickInterval = config.interval || 500;
+    this.state.maxClicks = config.max || 100;
+    this.setupCleanup();
+  },
+  setupCleanup() {
+    window.addEventListener('beforeunload', () => this.stop());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.state.active) this.pause();
+      else if (!document.hidden && this.state.active) this.resume();
     });
-    if (res.status === 429) {
-      throw new Error('Rate limited');
+  },
+  start() {
+    if (this.state.active) return;
+    this.state.active = true;
+    this.state.clicks = 0;
+    this.state.intervalId = setInterval(() => this.performClick(), this.state.clickInterval);
+  },
+  performClick() {
+    if (!this.state.active || this.state.clicks >= this.state.maxClicks) {
+      this.stop();
+      return;
     }
-    if (!res.ok) {
-      throw new Error(`Status ${res.status}`);
+    const elements = document.querySelectorAll(this.state.targetSelector);
+    if (elements.length > 0) {
+      const randomIndex = Math.floor(Math.random() * elements.length);
+      const element = elements[randomIndex];
+      this.simulateClick(element);
+      this.state.clicks++;
     }
-    return await res.json();
-  };
-  try {
-    const response = await retryOp(doFetch);
-    const localSuccess = Math.random() > 0.1;
-    if (localSuccess && response.confirmed) {
-      return { status: 'success', clicks: clickData.count || 1 };
+  },
+  simulateClick(element) {
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+    element.dispatchEvent(event);
+  },
+  pause() {
+    if (this.state.intervalId) {
+      clearInterval(this.state.intervalId);
+      this.state.intervalId = null;
     }
-    return { status: 'partial', message: 'Network ok but local mismatch' };
-  } catch (error) {
-    return { status: 'failed', error: error.message };
+  },
+  resume() {
+    if (this.state.active && !this.state.intervalId) {
+      this.state.intervalId = setInterval(() => this.performClick(), this.state.clickInterval);
+    }
+  },
+  stop() {
+    this.state.active = false;
+    if (this.state.intervalId) {
+      clearInterval(this.state.intervalId);
+      this.state.intervalId = null;
+    }
+    this.state.clicks = 0;
+  },
+  getStatus() {
+    return { active: this.state.active, clicks: this.state.clicks, target: this.state.targetSelector };
   }
-};
-
-module.exports = {
-  autoclickNetworkHandler,
-  createNetworkRetry
 };
