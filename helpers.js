@@ -1,75 +1,80 @@
-const defaults = {
-  clickInterval: 500,
-  maxClicks: 100,
-  targetSelector: ".auto-click-target",
-  randomizeDelay: false,
-  delayVariance: 100,
-  stopOnError: true,
-  logLevel: "info"
-};
+/**
+ * @typedef {Object} ClickOptions
+ * @property {number} [xOffset]
+ * @property {number} [yOffset]
+ */
 
-function createConfig(userSettings = {}) {
-  const configProxy = new Proxy(userSettings, {
-    get(obj, key) {
-      if (key in obj) return obj[key];
-      return defaults[key];
-    },
-    set(obj, key, value) {
-      obj[key] = value;
-      return true;
-    },
-    ownKeys(obj) {
-      return [...new Set([...Object.keys(obj), ...Object.keys(defaults)])];
-    },
-    getOwnPropertyDescriptor(obj, key) {
-      return {
-        value: key in obj ? obj[key] : defaults[key],
-        enumerable: true,
-        configurable: true
-      };
-    }
-  });
-  function load(overrides = {}) {
-    const merged = Object.assign({}, userSettings, overrides);
-    const proxy = new Proxy(merged, {
-      get(target, prop) {
-        if (prop in target) {
-          return target[prop];
-        }
-        if (prop in defaults) {
-          return defaults[prop];
-        }
-        return undefined;
-      }
-    });
-    return validate(proxy);
-  }
-  function validate(cfg) {
-    if (typeof cfg.clickInterval !== "number" || cfg.clickInterval < 10) {
-      cfg.clickInterval = defaults.clickInterval;
-    }
-    if (typeof cfg.maxClicks !== "number" || cfg.maxClicks < 1) {
-      cfg.maxClicks = defaults.maxClicks;
-    }
-    if (typeof cfg.targetSelector !== "string" || cfg.targetSelector.length === 0) {
-      cfg.targetSelector = defaults.targetSelector;
-    }
-    return cfg;
-  }
-  configProxy.load = load;
-  configProxy.getDefaults = () => Object.assign({}, defaults);
-  configProxy.update = (updates) => {
-    if (updates && typeof updates === "object") {
-      Object.keys(updates).forEach(key => {
-        if (key in defaults) {
-          userSettings[key] = updates[key];
-        }
-      });
-    }
-    return configProxy;
-  };
-  return configProxy;
+/**
+ * Simulates click on element with offset and random micro adjustment.
+ * @param {HTMLElement} element
+ * @param {ClickOptions} [options]
+ * @returns {void}
+ */
+function simulateClick(element, options = {}) {
+  const { xOffset = 0, yOffset = 0 } = options;
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2 + xOffset + (Math.random() - 0.5) * 2;
+  const y = rect.top + rect.height / 2 + yOffset + (Math.random() - 0.5) * 2;
+  const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true, clientX: x, clientY: y });
+  element.dispatchEvent(clickEvent);
 }
 
-const config = createConfig();
-module.exports = { createConfig, config };
+/**
+ * Starts autoclicker cycling through matching elements.
+ * @param {string} selector
+ * @param {number} interval
+ * @returns {number}
+ */
+function startAutoclicker(selector, interval) {
+  const elements = document.querySelectorAll(selector);
+  let index = 0;
+  return setInterval(() => {
+    if (elements.length > 0) {
+      const el = elements[index % elements.length];
+      if (el) simulateClick(el);
+      index++;
+    }
+  }, interval);
+}
+
+/**
+ * Stops autoclicker by interval id.
+ * @param {number} id
+ * @returns {void}
+ */
+function stopAutoclicker(id) {
+  clearInterval(id);
+}
+
+/**
+ * @typedef {Object} AutoClickConfig
+ * @property {string} selector
+ * @property {number} interval
+ * @property {number} maxClicks
+ */
+
+/**
+ * Runs autoclick for maxClicks with creative element cycling.
+ * @param {AutoClickConfig} config
+ * @returns {Promise<void>}
+ */
+function runLimitedAutoclicker(config) {
+  return new Promise(resolve => {
+    const { selector, interval, maxClicks = 10 } = config;
+    const elements = document.querySelectorAll(selector);
+    let count = 0, index = 0;
+    const id = setInterval(() => {
+      if (count >= maxClicks || elements.length === 0) {
+        clearInterval(id);
+        resolve();
+        return;
+      }
+      const el = elements[index % elements.length];
+      if (el) {
+        simulateClick(el);
+        count++;
+      }
+      index++;
+    }, interval);
+  });
+}
