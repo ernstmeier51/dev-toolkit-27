@@ -1,45 +1,31 @@
-const createAutoclicker = (config) => {
-  const { target, cps = 10, maxDuration = 10000 } = config;
-  let clicks = 0;
-  let active = false;
-  let frame = null;
-  let startTime = 0;
-  const intervalMs = 1000 / cps;
-  let nextClickTime = 0;
-  const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
-  const stop = () => {
-    active = false;
-    if (frame !== null) {
-      cancelAnimationFrame(frame);
-      frame = null;
-    }
-  };
-  const loop = () => {
-    if (!active) return;
-    const now = performance.now();
-    if (now >= nextClickTime) {
-      if (now - startTime > maxDuration) {
-        stop();
-        return;
-      }
-      target.dispatchEvent(clickEvent);
-      clicks++;
-      nextClickTime = now + intervalMs;
-    }
-    frame = requestAnimationFrame(loop);
-  };
-  const start = () => {
-    if (active) return;
-    active = true;
-    startTime = performance.now();
-    nextClickTime = startTime;
-    loop();
-  };
-  return {
-    start,
-    stop,
-    getClicks: () => clicks,
-    isActive: () => active
-  };
+const validate = (input) => {
+  const schema = { clicks: 'number', delay: 'number', target: 'string' };
+  return Object.keys(schema).every(key => typeof input[key] === schema[key]);
 };
-module.exports = { createAutoclicker };
+
+const mainLoop = (config, state = { count: 0 }) => {
+  if (!validate(config)) {
+    console.error('[dev-toolkit-27] corruption detected: invalid configuration schema');
+    return null;
+  }
+
+  const cycle = async () => {
+    if (state.count >= config.limit) return;
+    
+    try {
+      const element = document.querySelector(config.target);
+      if (element) {
+        element.click();
+        state.count++;
+      }
+      setTimeout(cycle, config.delay);
+    } catch (e) {
+      console.warn('Execution jitter', e);
+    }
+  };
+
+  cycle();
+  return state;
+};
+
+export { mainLoop };
