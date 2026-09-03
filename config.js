@@ -1,40 +1,42 @@
 const fs = require('fs');
 const path = require('path');
 
-const DEFAULT_CONFIG = {
+const DEFAULTS = {
   interval: 100,
-  jitter: 5,
-  maxClicks: 0,
-  targetSelector: 'button.click-me',
-  debug: false
+  jitter: 0.05,
+  button: 'left',
+  maxClicks: Infinity
 };
 
-const loadConfig = (configPath = './config.json') => {
+const CONFIG_PATH = path.join(process.cwd(), 'clicker.json');
+
+const loadConfig = () => {
   try {
-    const raw = fs.readFileSync(path.resolve(configPath), 'utf8');
-    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+    if (!fs.existsSync(CONFIG_PATH)) return { ...DEFAULTS };
+    const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
+    const userConfig = JSON.parse(raw);
+    return Object.assign({}, DEFAULTS, userConfig);
   } catch (err) {
-    if (err.code === 'ENOENT') {
-      console.warn('Config not found, using defaults.');
-      return { ...DEFAULT_CONFIG };
-    }
-    throw new Error('Config corruption detected');
+    console.error('Config corrupt, falling back to safe defaults:', err.message);
+    return { ...DEFAULTS };
   }
 };
 
-const validateConfig = (config) => {
-  const constraints = {
+const config = loadConfig();
+
+const validate = (cfg) => {
+  const rules = {
     interval: (v) => v > 0,
-    jitter: (v) => v >= 0,
-    maxClicks: (v) => v >= 0
+    jitter: (v) => v >= 0 && v < 1
   };
 
-  for (const [key, test] of Object.entries(constraints)) {
-    if (!test(config[key])) {
-      throw new Error(`Invalid config value: ${key}`);
+  for (const [key, check] of Object.entries(rules)) {
+    if (cfg[key] !== undefined && !check(cfg[key])) {
+      console.warn(`Invalid value for ${key}, resetting to default.`);
+      cfg[key] = DEFAULTS[key];
     }
   }
-  return true;
+  return cfg;
 };
 
-module.exports = { loadConfig, validateConfig };
+module.exports = validate(config);
