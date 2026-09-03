@@ -1,42 +1,68 @@
-const fs = require('fs');
-const path = require('path');
+/**
+ * DevToolkit-27 :: Autoclicker Configuration Matrix
+ */
 
-const DEFAULTS = {
-  interval: 100,
-  jitter: 0.05,
-  button: 'left',
-  maxClicks: Infinity
-};
+const DEFAULT_CONFIG = Object.freeze({
+  cps: 12,
+  jitter: 0.15,
+  burstCount: 5,
+  targetSelector: '#click-target',
+  clickType: 'left',
+  maxDurationMs: 60000,
+  active: false
+});
 
-const CONFIG_PATH = path.join(process.cwd(), 'clicker.json');
+class ConfigEngine {
+  constructor(overrides = {}) {
+    this.listeners = new Set();
+    this._raw = { ...DEFAULT_CONFIG, ...overrides };
 
-const loadConfig = () => {
-  try {
-    if (!fs.existsSync(CONFIG_PATH)) return { ...DEFAULTS };
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    const userConfig = JSON.parse(raw);
-    return Object.assign({}, DEFAULTS, userConfig);
-  } catch (err) {
-    console.error('Config corrupt, falling back to safe defaults:', err.message);
-    return { ...DEFAULTS };
+    return new Proxy(this, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        return target._raw[prop];
+      },
+      set(target, prop, value) {
+        if (prop in target) {
+          target[prop] = value;
+          return true;
+        }
+        const sanitized = target._sanitize(prop, value);
+        if (target._raw[prop] !== sanitized) {
+          const prev = target._raw[prop];
+          target._raw[prop] = sanitized;
+          target._notify(prop, sanitized, prev);
+        }
+        return true;
+      }
+    });
   }
-};
 
-const config = loadConfig();
-
-const validate = (cfg) => {
-  const rules = {
-    interval: (v) => v > 0,
-    jitter: (v) => v >= 0 && v < 1
-  };
-
-  for (const [key, check] of Object.entries(rules)) {
-    if (cfg[key] !== undefined && !check(cfg[key])) {
-      console.warn(`Invalid value for ${key}, resetting to default.`);
-      cfg[key] = DEFAULTS[key];
-    }
+  _sanitize(key, val) {
+    if (key === 'cps') return Math.max(1, Math.min(1000, Number(val) || 12));
+    if (key === 'jitter') return Math.max(0, Math.min(1, Number(val) || 0));
+    if (key === 'clickType') return ['left', 'right', 'middle'].includes(val) ? val : 'left';
+    return val;
   }
-  return cfg;
-};
 
-module.exports = validate(config);
+  subscribe(fn) {
+    if (typeof fn === 'function') this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  _notify(prop, newVal, oldVal) {
+    this.listeners.forEach((fn) => fn({ key: prop, newVal, oldVal }));
+  }
+
+  reset() {
+    Object.assign(this._raw, DEFAULT_CONFIG);
+    this._notify('*', this._raw, null);
+  }
+
+  exportState() {
+    return JSON.stringify(this._raw, null, 2);
+  }
+}
+
+export const autoclickConfig = new ConfigEngine();
+export { ConfigEngine, DEFAULT_CONFIG };
