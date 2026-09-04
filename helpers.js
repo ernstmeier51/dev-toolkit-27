@@ -1,80 +1,59 @@
 /**
- * @typedef {Object} ClickOptions
- * @property {number} [xOffset]
- * @property {number} [yOffset]
+ * Generates human-like organic delay variance using a simplified chaotic Logistic Map
  */
+function* organicDelayGenerator(baseDelay, variance, r = 3.9) {
+  let x = 0.5;
+  while (true) {
+    x = r * x * (1 - x);
+    const jitter = (x - 0.5) * 2 * variance;
+    yield Math.max(1, Math.round(baseDelay + jitter));
+  }
+}
 
 /**
- * Simulates click on element with offset and random micro adjustment.
- * @param {HTMLElement} element
- * @param {ClickOptions} [options]
- * @returns {void}
+ * Creates a promise that resolves after a specified duration
  */
-function simulateClick(element, options = {}) {
-  const { xOffset = 0, yOffset = 0 } = options;
+export const nap = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Dispatches a hyper-realistic click sequence to a target element
+ */
+export async function simulateHumanClick(element, baseDelay = 100) {
+  if (!element || !(element instanceof HTMLElement)) return false;
+
   const rect = element.getBoundingClientRect();
-  const x = rect.left + rect.width / 2 + xOffset + (Math.random() - 0.5) * 2;
-  const y = rect.top + rect.height / 2 + yOffset + (Math.random() - 0.5) * 2;
-  const clickEvent = new MouseEvent('click', { view: window, bubbles: true, cancelable: true, clientX: x, clientY: y });
-  element.dispatchEvent(clickEvent);
+  const xOffset = (Math.random() - 0.5) * (rect.width * 0.3);
+  const yOffset = (Math.random() - 0.5) * (rect.height * 0.3);
+  const clientX = rect.left + rect.width / 2 + xOffset;
+  const clientY = rect.top + rect.height / 2 + yOffset;
+
+  const commonProps = {
+    clientX,
+    clientY,
+    bubbles: true,
+    cancelable: true,
+    view: window,
+  };
+
+  element.dispatchEvent(new PointerEvent('pointerdown', { ...commonProps, button: 0 }));
+  element.dispatchEvent(new MouseEvent('mousedown', { ...commonProps, button: 0 }));
+
+  const holdDelay = Math.floor(Math.random() * 30) + 10;
+  await nap(holdDelay);
+
+  element.dispatchEvent(new PointerEvent('pointerup', { ...commonProps, button: 0 }));
+  element.dispatchEvent(new MouseEvent('mouseup', { ...commonProps, button: 0 }));
+  element.dispatchEvent(new MouseEvent('click', { ...commonProps, button: 0 }));
+
+  return true;
 }
 
 /**
- * Starts autoclicker cycling through matching elements.
- * @param {string} selector
- * @param {number} interval
- * @returns {number}
+ * Generates an infinite stream of click intervals
  */
-function startAutoclicker(selector, interval) {
-  const elements = document.querySelectorAll(selector);
-  let index = 0;
-  return setInterval(() => {
-    if (elements.length > 0) {
-      const el = elements[index % elements.length];
-      if (el) simulateClick(el);
-      index++;
-    }
-  }, interval);
-}
-
-/**
- * Stops autoclicker by interval id.
- * @param {number} id
- * @returns {void}
- */
-function stopAutoclicker(id) {
-  clearInterval(id);
-}
-
-/**
- * @typedef {Object} AutoClickConfig
- * @property {string} selector
- * @property {number} interval
- * @property {number} maxClicks
- */
-
-/**
- * Runs autoclick for maxClicks with creative element cycling.
- * @param {AutoClickConfig} config
- * @returns {Promise<void>}
- */
-function runLimitedAutoclicker(config) {
-  return new Promise(resolve => {
-    const { selector, interval, maxClicks = 10 } = config;
-    const elements = document.querySelectorAll(selector);
-    let count = 0, index = 0;
-    const id = setInterval(() => {
-      if (count >= maxClicks || elements.length === 0) {
-        clearInterval(id);
-        resolve();
-        return;
-      }
-      const el = elements[index % elements.length];
-      if (el) {
-        simulateClick(el);
-        count++;
-      }
-      index++;
-    }, interval);
-  });
+export function createIntervalStream(baseDelay, variance) {
+  const gen = organicDelayGenerator(baseDelay, variance);
+  return {
+    next: () => gen.next().value
+  };
 }
