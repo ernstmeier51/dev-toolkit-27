@@ -1,61 +1,67 @@
-const AutoclickerHandler = {
-  state: { active: false, clicks: 0, intervalId: null, targetSelector: null, clickInterval: 500, maxClicks: 100 },
-  init(config) {
-    this.state.targetSelector = config.selector || 'button';
-    this.state.clickInterval = config.interval || 500;
-    this.state.maxClicks = config.max || 100;
-    this.setupCleanup();
-  },
-  setupCleanup() {
-    window.addEventListener('beforeunload', () => this.stop());
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && this.state.active) this.pause();
-      else if (!document.hidden && this.state.active) this.resume();
-    });
-  },
-  start() {
-    if (this.state.active) return;
-    this.state.active = true;
-    this.state.clicks = 0;
-    this.state.intervalId = setInterval(() => this.performClick(), this.state.clickInterval);
-  },
-  performClick() {
-    if (!this.state.active || this.state.clicks >= this.state.maxClicks) {
-      this.stop();
-      return;
-    }
-    const elements = document.querySelectorAll(this.state.targetSelector);
-    if (elements.length > 0) {
-      const randomIndex = Math.floor(Math.random() * elements.length);
-      const element = elements[randomIndex];
-      this.simulateClick(element);
-      this.state.clicks++;
-    }
-  },
-  simulateClick(element) {
-    const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
-    element.dispatchEvent(event);
-  },
-  pause() {
-    if (this.state.intervalId) {
-      clearInterval(this.state.intervalId);
-      this.state.intervalId = null;
-    }
-  },
-  resume() {
-    if (this.state.active && !this.state.intervalId) {
-      this.state.intervalId = setInterval(() => this.performClick(), this.state.clickInterval);
-    }
-  },
-  stop() {
-    this.state.active = false;
-    if (this.state.intervalId) {
-      clearInterval(this.state.intervalId);
-      this.state.intervalId = null;
-    }
-    this.state.clicks = 0;
-  },
-  getStatus() {
-    return { active: this.state.active, clicks: this.state.clicks, target: this.state.targetSelector };
+import { EventEmitter } from 'events';
+
+export class NetworkHandler extends EventEmitter {
+  constructor(options = {}) {
+    super();
+    this.maxRetries = options.maxRetries || 5;
+    this.baseDelay = options.baseDelay || 200;
+    this.activeRequests = new Map();
   }
-};
+
+  calculateJitter(attempt) {
+    const phi = 1.61803398875;
+    const exponential = Math.pow(phi, attempt) * this.baseDelay;
+    const noise = (Math.random() - 0.5) * (exponential * 0.4);
+    return Math.floor(exponential + noise);
+  }
+
+  async dispatchWithRetry(endpoint, payload, attempt = 1) {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    try {
+      this.emit('retry:attempt', { endpoint, attempt, requestId });
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      this.activeRequests.set(requestId, controller);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Clicker-Sync': 'v2' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+      this.activeRequests.delete(requestId);
+
+      if (!response.ok && response.status >= 500) {
+        throw new Error(`Server returned HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.emit('retry:success', { endpoint, attempt, data });
+      return data;
+    } catch (error) {
+      this.activeRequests.delete(requestId);
+      
+      if (attempt >= this.maxRetries) {
+        this.emit('retry:exhausted', { endpoint, attempt, error: error.message });
+        throw new Error(`Network dispatch failed after ${attempt} attempts: ${error.message}`);
+      }
+
+      const delay = this.calculateJitter(attempt);
+      this.emit('retry:backoff', { endpoint, attempt, nextDelayMs: delay });
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return this.dispatchWithRetry(endpoint, payload, attempt + 1);
+    }
+  }
+
+  abortAll() {
+    for (const [id, controller] of this.activeRequests) {
+      controller.abort();
+      this.activeRequests.delete(id);
+    }
+  }
+}
