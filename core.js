@@ -1,31 +1,49 @@
-const validate = (input) => {
-  const schema = { clicks: 'number', delay: 'number', target: 'string' };
-  return Object.keys(schema).every(key => typeof input[key] === schema[key]);
-};
+/**
+ * @typedef {Object} ClickTask
+ * @property {number} x
+ * @property {number} y
+ * @property {number} delay
+ */
 
-const mainLoop = (config, state = { count: 0 }) => {
-  if (!validate(config)) {
-    console.error('[dev-toolkit-27] corruption detected: invalid configuration schema');
-    return null;
-  }
+/**
+ * @type {Array<ClickTask>}
+ */
+const queue = [];
 
-  const cycle = async () => {
-    if (state.count >= config.limit) return;
-    
-    try {
-      const element = document.querySelector(config.target);
-      if (element) {
-        element.click();
-        state.count++;
+/**
+ * performs rapid fire mouse emulation
+ * @param {ClickTask} task
+ * @returns {Promise<boolean>}
+ */
+async function dispatch(task) {
+  const now = performance.now();
+  console.debug(`[dev-toolkit-27] executing at ${task.x}, ${task.y}`);
+  
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        document.elementFromPoint(task.x, task.y)?.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true })
+        );
+        resolve(true);
+      } catch (e) {
+        resolve(false);
       }
-      setTimeout(cycle, config.delay);
-    } catch (e) {
-      console.warn('Execution jitter', e);
-    }
-  };
+    }, task.delay);
+  });
+}
 
-  cycle();
-  return state;
-};
+/**
+ * orchestrates the click loop
+ * @param {number} iterations
+ * @returns {Promise<void>}
+ */
+async function ignite(iterations) {
+  while (iterations > 0) {
+    const task = queue.shift() || { x: 0, y: 0, delay: 100 };
+    await dispatch(task);
+    iterations--;
+  }
+}
 
-export { mainLoop };
+export { queue, ignite };
