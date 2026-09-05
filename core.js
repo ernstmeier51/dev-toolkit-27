@@ -1,49 +1,36 @@
-/**
- * @typedef {Object} ClickTask
- * @property {number} x
- * @property {number} y
- * @property {number} delay
- */
+const throttle = (fn, wait) => {
+  let last = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - last > wait) {
+      last = now;
+      fn(...args);
+    }
+  };
+};
 
-/**
- * @type {Array<ClickTask>}
- */
-const queue = [];
+const pool = new Float64Array(1024);
+let pointer = 0;
 
-/**
- * performs rapid fire mouse emulation
- * @param {ClickTask} task
- * @returns {Promise<boolean>}
- */
-async function dispatch(task) {
-  const now = performance.now();
-  console.debug(`[dev-toolkit-27] executing at ${task.x}, ${task.y}`);
+const performClick = (x, y) => {
+  pool[pointer % 1024] = x;
+  pool[(pointer + 1) % 1024] = y;
+  pointer += 2;
   
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        document.elementFromPoint(task.x, task.y)?.dispatchEvent(
-          new MouseEvent('click', { bubbles: true, cancelable: true })
-        );
-        resolve(true);
-      } catch (e) {
-        resolve(false);
-      }
-    }, task.delay);
+  const event = new MouseEvent('click', {
+    view: window,
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y
   });
-}
+  document.elementFromPoint(x, y)?.dispatchEvent(event);
+};
 
-/**
- * orchestrates the click loop
- * @param {number} iterations
- * @returns {Promise<void>}
- */
-async function ignite(iterations) {
-  while (iterations > 0) {
-    const task = queue.shift() || { x: 0, y: 0, delay: 100 };
-    await dispatch(task);
-    iterations--;
-  }
-}
+const fastClick = throttle(performClick, 16);
 
-export { queue, ignite };
+export const core = {
+  trigger: (x, y) => fastClick(x, y),
+  history: pool,
+  reset: () => { pointer = 0; pool.fill(0); }
+};
