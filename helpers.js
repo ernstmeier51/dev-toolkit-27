@@ -1,52 +1,53 @@
-const jitter = (base, percent = 15) => {
-  const variation = base * (percent / 100);
-  return base + (Math.random() * variation * 2 - variation);
-};
+/**
+ * Resilient fetch wrapper with chaotic jitter and click-burst retry cadence.
+ */
+export const createClickSyncDispatcher = (options = {}) => {
+  const {
+    maxAttempts = 5,
+    baseDelayMs = 150,
+    maxJitterMs = 80,
+    burstMultiplier = 1.618 // Golden ratio backoff multiplier
+  } = options;
 
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-export const clickSimulator = {
-  async dispatchHumanLike(element, opts = {}) {
-    if (!element) return false;
-    const targetOpts = { bubbles: true, cancelable: true, view: window, ...opts };
-    
-    element.dispatchEvent(new MouseEvent('mousedown', targetOpts));
-    await wait(jitter(45, 30)); 
-    
-    element.dispatchEvent(new MouseEvent('mouseup', targetOpts));
-    element.click();
-    return true;
-  },
-
-  *delayGenerator(baseInterval, limit = Infinity) {
-    let count = 0;
-    while (count < limit) {
-      yield jitter(baseInterval, 25);
-      count++;
-    }
-  },
-
-  async runSequence(element, interval, durationMs) {
-    const startTime = Date.now();
-    const delays = this.delayGenerator(interval);
-    
-    for (const delay of delays) {
-      if (Date.now() - startTime >= durationMs) break;
-      await wait(delay);
-      await this.dispatchHumanLike(element);
+  // Generator producing dynamic autoclicker retry backoff intervals
+  function* backoffSequence() {
+    let current = baseDelayMs;
+    while (true) {
+      const jitter = Math.floor(Math.random() * maxJitterMs);
+      yield Math.round(current + jitter);
+      current *= burstMultiplier;
     }
   }
-};
 
-export const elementFinder = new Proxy({}, {
-  get(_, prop) {
-    return (selector) => {
-      const element = document.querySelector(selector);
-      if (!element) return null;
-      return {
-        element,
-        click: () => clickSimulator.dispatchHumanLike(element)
-      };
+  return async function dispatchWithRetry(fetchOperation, payload) {
+    const delays = backoffSequence();
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetchOperation(payload);
+        if (response && !response.ok && response.status >= 500) {
+          throw new Error(`HTTP Server Error ${response.status}`);
+        }
+        return {
+          success: true,
+          attempt,
+          data: response && typeof response.json === 'function' ? await response.json() : response
+        };
+      } catch (err) {
+        lastError = err;
+        if (attempt === maxAttempts) break;
+
+        const waitMs = delays.next().value;
+        console.warn(`[dev-toolkit-27] Click sync attempt ${attempt} failed. Retrying in ${waitMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+    }
+
+    return {
+      success: false,
+      attempts: maxAttempts,
+      error: lastError?.message || 'Network sync failed after maximum retries'
     };
-  }
-});
+  };
+};
