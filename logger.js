@@ -1,57 +1,65 @@
-const fs = require('fs');
-const path = require('path');
-
-class RotatorLogger {
-  constructor(limit = 150) {
-    this.dir = path.join(process.cwd(), 'click-logs');
-    this.limit = limit;
-    this.count = 0;
-    this.activeFile = '';
-    if (!fs.existsSync(this.dir)) {
-      fs.mkdirSync(this.dir, { recursive: true });
-    }
-    this.cycle();
+class RingBufferLogger {
+  constructor(capacity = 64) {
+    this.capacity = capacity;
+    this.buffer = new Array(capacity);
+    this.head = 0;
+    this.tail = 0;
+    this.errorCounts = new Map();
   }
 
-  cycle() {
-    this.activeFile = path.join(this.dir, `session_${Date.now()}.log`);
-    this.count = 0;
-    const files = fs.readdirSync(this.dir).map(f => path.join(this.dir, f));
-    if (files.length > 3) {
-      files.sort((a, b) => fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs);
-      try {
-        fs.unlinkSync(files[0]);
-      } catch (err) {
-        // Silently handle busy file locks
-      }
+  logError(error, context = {}) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : '';
+    const hash = this._hash(message);
+
+    const count = (this.errorCounts.get(hash) || 0) + 1;
+    this.errorCounts.set(hash, count);
+
+    if (count > 5 && count % 100 !== 0) {
+      return;
     }
+
+    const payload = {
+      timestamp: Date.now(),
+      message,
+      source: stack.split('\n')[1]?.trim() || 'unknown source',
+      repeats: count,
+      ...context
+    };
+
+    this.buffer[this.head] = payload;
+    this.head = (this.head + 1) % this.capacity;
+    if (this.head === this.tail) {
+      this.tail = (this.tail + 1) % this.capacity;
+    }
+
+    console.error(`[Autoclicker-Mitigator] (x${count}) ${message}`);
   }
 
-  write(level, msg) {
-    if (this.count >= this.limit) {
-      this.cycle();
+  _hash(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 33) ^ str.charCodeAt(i);
     }
-    const payload = `[${new Date().toISOString()}] [${level}] ${msg}\n`;
-    try {
-      fs.appendFileSync(this.activeFile, payload);
-      this.count++;
-    } catch (err) {
-      process.stderr.write(`Failed to write to log: ${err.message}\n`);
+    return hash >>> 0;
+  }
+
+  getRecentErrors() {
+    const results = [];
+    let current = this.tail;
+    while (current !== this.head) {
+      if (this.buffer[current]) results.push(this.buffer[current]);
+      current = (current + 1) % this.capacity;
     }
+    return results.reverse();
+  }
+
+  flush() {
+    this.buffer.fill(null);
+    this.head = 0;
+    this.tail = 0;
+    this.errorCounts.clear();
   }
 }
 
-const instance = new RotatorLogger();
-const intercept = (method, level) => {
-  const original = console[method];
-  console[method] = (...args) => {
-    instance.write(level, args.join(' '));
-    original.apply(console, args);
-  };
-};
-
-intercept('log', 'INFO');
-intercept('warn', 'WARN');
-intercept('error', 'ERROR');
-
-module.exports = instance;
+export const logger = new RingBufferLogger();
