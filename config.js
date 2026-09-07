@@ -1,41 +1,38 @@
-/**
- * @typedef {Object} ClickConfig
- * @property {number} intervalMs - delay between clicks
- * @property {number} jitterMs - randomization factor for human-like behavior
- * @property {boolean} active - toggles automation state
- */
+const fs = require('fs');
 
-/**
- * default runtime configuration for dev-toolkit-27
- * @type {Readonly<ClickConfig>}
- */
-const config = Object.freeze({
-  intervalMs: 500,
-  jitterMs: 120,
-  active: false
-});
-
-/**
- * calculates dynamic delay for next cycle
- * @param {ClickConfig} cfg 
- * @returns {number}
- */
-const getNextInterval = (cfg) => {
-  const drift = (Math.random() - 0.5) * cfg.jitterMs;
-  return Math.max(10, cfg.intervalMs + drift);
+const DEFAULTS = {
+  interval: 100,
+  jitter: 0.05,
+  autoStart: false,
+  hotkey: 'F6',
+  clickType: 'left'
 };
 
-/**
- * validates provided configuration object
- * @param {any} input 
- * @returns {boolean}
- */
-const isValidConfig = (input) => {
-  return (
-    typeof input.intervalMs === 'number' &&
-    typeof input.jitterMs === 'number' &&
-    typeof input.active === 'boolean'
-  );
+const loadConfig = (path = './config.json') => {
+  try {
+    if (!fs.existsSync(path)) {
+      fs.writeFileSync(path, JSON.stringify(DEFAULTS, null, 2));
+      return { ...DEFAULTS, _fresh: true };
+    }
+    const raw = fs.readFileSync(path, 'utf8');
+    const userConfig = JSON.parse(raw);
+    
+    return Object.entries(DEFAULTS).reduce((acc, [key, val]) => {
+      acc[key] = typeof userConfig[key] !== 'undefined' ? userConfig[key] : val;
+      return acc;
+    }, {});
+  } catch (e) {
+    return { ...DEFAULTS, _error: e.message };
+  }
 };
 
-export { config, getNextInterval, isValidConfig };
+const validateConfig = (cfg) => {
+  const rules = {
+    interval: (v) => v >= 10 && v <= 10000,
+    jitter: (v) => v >= 0 && v <= 1
+  };
+  
+  return Object.keys(rules).every(key => rules[key](cfg[key]));
+};
+
+module.exports = { loadConfig, validateConfig };
