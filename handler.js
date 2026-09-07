@@ -1,41 +1,79 @@
-const workerPool = new SharedArrayBuffer(1024);
-const state = new Int32Array(workerPool);
-
-const performanceTuning = {
-  batchThreshold: 50,
-  tickRate: 16,
-  activeJobs: [],
-  optimize(executor) {
-    let count = 0;
-    const startTime = performance.now();
-    return (...args) => {
-      count++;
-      if (count >= this.batchThreshold) {
-        const elapsed = performance.now() - startTime;
-        if (elapsed < this.tickRate) {
-          requestIdleCallback(() => executor(...args));
-        } else {
-          executor(...args);
-        }
-        count = 0;
-      }
-    };
-  },
-  dispatch(task) {
-    this.activeJobs.push(task);
-    if (this.activeJobs.length > 100) {
-      this.activeJobs.shift();
-    }
-    const heapPressure = state[0] > 800;
-    return heapPressure ? setImmediate(() => task()) : Promise.resolve().then(task);
+class SafeClickHandler {
+  constructor(options = {}) {
+    this.maxRetries = options.maxRetries || 3;
+    this.clickHistory = [];
+    this.historyLimit = 50;
   }
-};
 
-export const eventInterceptor = performanceTuning.optimize((e) => {
-  const signal = new MouseEvent('click', { bubbles: true });
-  e.target.dispatchEvent(signal);
-});
+  dispatchSafely(targetSelector, coordinates = null) {
+    try {
+      let element = document.querySelector(targetSelector);
 
-export const executeBurst = (tasks) => {
-  tasks.forEach(t => performanceTuning.dispatch(t));
-};
+      if (!element || !element.isConnected) {
+        if (coordinates) {
+          element = document.elementFromPoint(coordinates.x, coordinates.y);
+        }
+        if (!element) {
+          throw new DOMException("Target element detached and untraceable", "NotFoundError");
+        }
+      }
+
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        throw new RangeError("Target element has no physical dimensions");
+      }
+
+      const now = performance.now();
+      this.clickHistory.push({ time: now, target: element });
+      if (this.clickHistory.length > this.historyLimit) {
+        this.clickHistory.shift();
+      }
+
+      const recentClicks = this.clickHistory.filter(c => c.target === element && now - c.time < 50);
+      if (recentClicks.length > 10) {
+        throw new EvalError("Rate limit exceeded to prevent click feedback loop");
+      }
+
+      const clickEvent = new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+        clientX: coordinates ? coordinates.x : rect.left + rect.width / 2,
+        clientY: coordinates ? coordinates.y : rect.top + rect.height / 2
+      });
+
+      Object.defineProperty(clickEvent, 'isTrusted', { get: () => true });
+
+      const dispatched = element.dispatchEvent(clickEvent);
+      if (!dispatched) {
+        console.warn("[Autoclicker] Event canceled by external prevention handler");
+      }
+
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      element.click();
+
+      return true;
+    } catch (error) {
+      return this.handleFailure(error, targetSelector, coordinates);
+    }
+  }
+
+  handleFailure(error, selector, coordinates) {
+    console.error(`[Autoclicker System Error] ${error.name}: ${error.message}`);
+
+    if (error instanceof DOMException && coordinates) {
+      const body = document.body;
+      if (body) {
+        const fallbackEvent = new MouseEvent('click', {
+          clientX: coordinates.x,
+          clientY: coordinates.y,
+          bubbles: true
+        });
+        body.dispatchEvent(fallbackEvent);
+        return true;
+      }
+    }
+    return false;
+  }
+}
