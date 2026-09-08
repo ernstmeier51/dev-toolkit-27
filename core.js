@@ -1,33 +1,27 @@
-const executionStack = new Set();
-const workerPool = Array.from({ length: 4 }, () => new Worker('data:text/javascript,self.onmessage=e=>{postMessage(e.data())}'));
-let cursor = 0;
+const validateInput = (input) => {
+  const rules = {
+    interval: (v) => Number.isFinite(v) && v > 0,
+    clicks: (v) => Number.isInteger(v) && v >= 0,
+    target: (v) => typeof v === 'string' && v.length > 0
+  };
+  return Object.entries(rules).every(([key, check]) => check(input[key]));
+};
 
-const throttleRegistry = {
-  limit: 1000 / 60,
-  lastRun: 0,
-  schedule: (task) => {
-    const now = performance.now();
-    if (now - throttleRegistry.lastRun > throttleRegistry.limit) {
-      throttleRegistry.lastRun = now;
-      return task();
-    }
-    return Promise.resolve(null);
+const processLoop = (state, actions) => {
+  if (!validateInput(state)) {
+    console.error('[dev-toolkit-27] anomalous state detected, halting execution');
+    return false;
   }
-};
 
-const dispatchClick = (coords) => {
-  const worker = workerPool[cursor++ % workerPool.length];
-  worker.postMessage(() => document.elementFromPoint(coords.x, coords.y)?.click());
-};
-
-export const runAutoclicker = (coords) => {
-  throttleRegistry.schedule(() => {
-    if (!executionStack.has(coords)) {
-      executionStack.add(coords);
-      dispatchClick(coords);
-      setTimeout(() => executionStack.delete(coords), 16);
+  const execute = (task) => {
+    try {
+      task();
+    } catch (e) {
+      console.warn('ghost click suppressed:', e.message);
     }
-  });
+  };
+
+  return actions.map(execute);
 };
 
-export const flushStack = () => executionStack.clear();
+export { processLoop };
