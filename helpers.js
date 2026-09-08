@@ -1,27 +1,36 @@
-const clickInterval = (target, delay, active) => {
-  let timer = null;
-  const pulse = () => {
-    if (active.get()) {
-      target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      timer = setTimeout(pulse, delay);
+const throttle = (fn, delay) => {
+  let last = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - last >= delay) {
+      last = now;
+      fn(...args);
     }
   };
-  return { start: () => !timer && pulse(), stop: () => clearTimeout(timer) };
 };
 
-const sanitizeNode = (node) => (node instanceof HTMLElement ? node : document.body);
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1) + min);
 
-const debounce = (fn, ms) => {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
+const clickAt = (x, y) => {
+  const el = document.elementFromPoint(x, y);
+  if (el) {
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
+    el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+  }
+};
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const queryAsync = (selector, timeout = 5000) => new Promise((resolve, reject) => {
+  const start = Date.now();
+  const check = () => {
+    const el = document.querySelector(selector);
+    if (el) return resolve(el);
+    if (Date.now() - start > timeout) return reject(new Error('timeout'));
+    requestAnimationFrame(check);
   };
-};
+  check();
+});
 
-const createToggleState = (initial = false) => {
-  let state = initial;
-  return { get: () => state, flip: () => { state = !state; return state; } };
-};
-
-export { clickInterval, sanitizeNode, debounce, createToggleState };
+export { throttle, randomInt, clickAt, sleep, queryAsync };
