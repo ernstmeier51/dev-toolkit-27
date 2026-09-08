@@ -1,36 +1,45 @@
-const throttle = (fn, delay) => {
-  let last = 0;
-  return (...args) => {
-    const now = Date.now();
-    if (now - last >= delay) {
-      last = now;
-      fn(...args);
-    }
-  };
+const randomNormal = (mean, stdDev) => {
+  const u1 = 1 - Math.random();
+  const u2 = 1 - Math.random();
+  const randStdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
+  return mean + stdDev * randStdNormal;
 };
 
-const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1) + min);
+export const sleep = (ms, jitter = 0.15) => {
+  const duration = randomNormal(ms, ms * jitter);
+  return new Promise(resolve => setTimeout(resolve, Math.max(1, duration)));
+};
 
-const clickAt = (x, y) => {
-  const el = document.elementFromPoint(x, y);
-  if (el) {
-    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y }));
-    el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y }));
-    el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+export const triggerHumanClick = (element) => {
+  if (!element) return false;
+  const rect = element.getBoundingClientRect();
+  const x = randomNormal(rect.left + rect.width / 2, rect.width / 6);
+  const y = randomNormal(rect.top + rect.height / 2, rect.height / 6);
+
+  const events = ['mousedown', 'mouseup', 'click'].map(type =>
+    new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: Math.max(rect.left, Math.min(rect.right, x)),
+      clientY: Math.max(rect.top, Math.min(rect.bottom, y))
+    })
+  );
+
+  events.forEach(evt => element.dispatchEvent(evt));
+  return true;
+};
+
+export const finder = new Proxy({}, {
+  get: (_, prop) => {
+    const query = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
+    return (context = document) => {
+      let el = context.querySelector(query) || context.querySelector(`.${query}`) || context.querySelector(`#${query}`);
+      if (!el) {
+        el = Array.from(context.querySelectorAll('button, a, div'))
+          .find(node => node.textContent.trim().toLowerCase().includes(query.replace(/-/g, ' ')));
+      }
+      return el;
+    };
   }
-};
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const queryAsync = (selector, timeout = 5000) => new Promise((resolve, reject) => {
-  const start = Date.now();
-  const check = () => {
-    const el = document.querySelector(selector);
-    if (el) return resolve(el);
-    if (Date.now() - start > timeout) return reject(new Error('timeout'));
-    requestAnimationFrame(check);
-  };
-  check();
 });
-
-export { throttle, randomInt, clickAt, sleep, queryAsync };
