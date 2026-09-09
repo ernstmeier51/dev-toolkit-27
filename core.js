@@ -1,27 +1,46 @@
-const validateInput = (input) => {
-  const rules = {
-    interval: (v) => Number.isFinite(v) && v > 0,
-    clicks: (v) => Number.isInteger(v) && v >= 0,
-    target: (v) => typeof v === 'string' && v.length > 0
-  };
-  return Object.entries(rules).every(([key, check]) => check(input[key]));
-};
-
-const processLoop = (state, actions) => {
-  if (!validateInput(state)) {
-    console.error('[dev-toolkit-27] anomalous state detected, halting execution');
-    return false;
+class UltraClicker {
+  constructor() {
+    this.running = false;
+    this.interval = 1;
+    this.target = null;
+    this.lastTime = 0;
+    const channel = new MessageChannel();
+    this.port = channel.port1;
+    this.post = channel.port2;
+    this.port.onmessage = () => this.execute();
   }
 
-  const execute = (task) => {
-    try {
-      task();
-    } catch (e) {
-      console.warn('ghost click suppressed:', e.message);
+  mount(element, ms = 1) {
+    this.target = element || document.body;
+    this.interval = Math.max(0.1, ms);
+    this.running = true;
+    this.lastTime = performance.now();
+    this.post.postMessage(null);
+  }
+
+  unmount() {
+    this.running = false;
+  }
+
+  execute() {
+    if (!this.running) return;
+    const now = performance.now();
+    const delta = now - this.lastTime;
+    if (delta >= this.interval) {
+      const clicksToDispatch = Math.min(100, Math.floor(delta / this.interval));
+      const event = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        view: window
+      });
+      for (let i = 0; i < clicksToDispatch; i++) {
+        this.target.dispatchEvent(event);
+      }
+      this.lastTime = now - (delta % this.interval);
     }
-  };
-
-  return actions.map(execute);
-};
-
-export { processLoop };
+    if (this.running) {
+      this.post.postMessage(null);
+    }
+  }
+}
+window.UltraClicker = UltraClicker;
