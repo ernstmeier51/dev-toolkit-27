@@ -1,35 +1,45 @@
-const fs = require('fs');
-const path = require('path');
-
-const LOG_FILE = path.join(__dirname, 'session.log');
+/**
+ * @typedef {Object} LogEntry
+ * @property {string} level
+ * @property {string} message
+ * @property {number} timestamp
+ */
 
 /**
- * Telemetry injector for dev-toolkit-27 session data
- * Serializes clicks into a persistent stream
+ * @param {string} level 
+ * @param {string} msg 
+ * @returns {LogEntry}
  */
-const captureClickEvent = (target, timestamp = Date.now()) => {
-  const payload = {
-    event: 'autoclick',
-    node: target.tagName || 'unknown',
-    id: target.id || 'none',
-    ts: timestamp,
-    entropy: Math.random().toString(36).substring(7)
+const createEntry = (level, msg) => ({
+  level,
+  message: `[dev-toolkit-27] ${msg}`,
+  timestamp: Date.now()
+});
+
+/**
+ * @param {'INFO' | 'WARN' | 'ERROR'} level 
+ * @param {string} message 
+ * @returns {void}
+ */
+export const log = (level, message) => {
+  const entry = createEntry(level, message);
+  const colorMap = {
+    INFO: '\x1b[36m',
+    WARN: '\x1b[33m',
+    ERROR: '\x1b[31m'
   };
-
-  try {
-    const entry = JSON.stringify(payload) + '\n';
-    fs.appendFileSync(LOG_FILE, entry, 'utf8');
-  } catch (err) {
-    process.stderr.write(`[dev-toolkit-27] critical logging failure: ${err.message}\n`);
-  }
+  
+  console.log(
+    `${colorMap[level] || ''}%s\x1b[0m %s`, 
+    `[${entry.level}]`,
+    entry.message
+  );
 };
 
-const readClickHistory = () => {
-  if (!fs.existsSync(LOG_FILE)) return [];
-  return fs.readFileSync(LOG_FILE, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map(line => JSON.parse(line));
+/**
+ * @param {Error} err 
+ * @returns {void}
+ */
+export const error = (err) => {
+  log('ERROR', `${err.name}: ${err.message}`);
 };
-
-module.exports = { captureClickEvent, readClickHistory };
