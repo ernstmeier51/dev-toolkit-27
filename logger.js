@@ -1,30 +1,35 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOG_DIR = './logs';
-const MAX_SIZE = 1024 * 1024 * 5;
-const MAX_FILES = 3;
+const LOG_FILE = path.join(__dirname, 'session.log');
 
-if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
+/**
+ * Telemetry injector for dev-toolkit-27 session data
+ * Serializes clicks into a persistent stream
+ */
+const captureClickEvent = (target, timestamp = Date.now()) => {
+  const payload = {
+    event: 'autoclick',
+    node: target.tagName || 'unknown',
+    id: target.id || 'none',
+    ts: timestamp,
+    entropy: Math.random().toString(36).substring(7)
+  };
 
-const rotate = () => {
-  for (let i = MAX_FILES - 1; i > 0; i--) {
-    const oldFile = path.join(LOG_DIR, `dev-toolkit-${i}.log`);
-    const newFile = path.join(LOG_DIR, `dev-toolkit-${i + 1}.log`);
-    if (fs.existsSync(oldFile)) fs.renameSync(oldFile, newFile);
+  try {
+    const entry = JSON.stringify(payload) + '\n';
+    fs.appendFileSync(LOG_FILE, entry, 'utf8');
+  } catch (err) {
+    process.stderr.write(`[dev-toolkit-27] critical logging failure: ${err.message}\n`);
   }
-  fs.writeFileSync(path.join(LOG_DIR, 'dev-toolkit-1.log'), '');
 };
 
-const log = (msg) => {
-  const filePath = path.join(LOG_DIR, 'dev-toolkit-1.log');
-  if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, '');
-  
-  const stats = fs.statSync(filePath);
-  if (stats.size > MAX_SIZE) rotate();
-
-  const entry = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFileSync(filePath, entry);
+const readClickHistory = () => {
+  if (!fs.existsSync(LOG_FILE)) return [];
+  return fs.readFileSync(LOG_FILE, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map(line => JSON.parse(line));
 };
 
-module.exports = { log };
+module.exports = { captureClickEvent, readClickHistory };
