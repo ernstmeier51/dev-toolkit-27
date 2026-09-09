@@ -1,33 +1,34 @@
-const memoizeClickCoordinates = (fn) => {
-  const cache = new Map();
-  return (...args) => {
-    const key = JSON.stringify(args);
-    if (cache.has(key)) return cache.get(key);
-    const result = fn(...args);
-    cache.set(key, result);
-    if (cache.size > 100) cache.delete(cache.keys().next().value);
-    return result;
-  };
+const StateManager = {
+  vault: new Map(),
+  save: (key, val) => StateManager.vault.set(key, val),
+  load: (key) => StateManager.vault.get(key),
+  flush: () => StateManager.vault.clear()
 };
 
-const fastEventDispatcher = {
-  queue: [],
-  flush() {
-    while (this.queue.length) {
-      const event = this.queue.shift();
-      document.elementFromPoint(event.x, event.y)?.dispatchEvent(new MouseEvent('click', {
-        view: window,
-        bubbles: true,
-        cancelable: true,
-        clientX: event.x,
-        clientY: event.y
-      }));
-    }
+const ClickEngine = {
+  intervalRef: null,
+  jitter: (base) => base + Math.floor(Math.random() * 50),
+  dispatch: (x, y) => {
+    const evt = new MouseEvent('click', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y
+    });
+    document.elementFromPoint(x, y)?.dispatchEvent(evt);
   },
-  schedule(x, y) {
-    this.queue.push({ x, y });
-    requestAnimationFrame(() => this.flush());
-  }
+  loop: (coords, speed) => {
+    ClickEngine.intervalRef = setInterval(() => {
+      ClickEngine.dispatch(coords.x, coords.y);
+    }, ClickEngine.jitter(speed));
+  },
+  halt: () => clearInterval(ClickEngine.intervalRef)
 };
 
-export { memoizeClickCoordinates, fastEventDispatcher };
+const sanitizers = {
+  int: (val) => parseInt(val, 10) || 0,
+  coords: (obj) => ({ x: sanitizers.int(obj.x), y: sanitizers.int(obj.y) })
+};
+
+export { StateManager, ClickEngine, sanitizers };
