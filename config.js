@@ -1,38 +1,30 @@
 const fs = require('fs');
 
-const DEFAULTS = {
+const defaults = {
   interval: 100,
   jitter: 0.05,
   autoStart: false,
-  hotkey: 'F6',
-  clickType: 'left'
+  hotkey: 'F8'
 };
 
-const loadConfig = (path = './config.json') => {
+const loadConfig = (path) => {
   try {
-    if (!fs.existsSync(path)) {
-      fs.writeFileSync(path, JSON.stringify(DEFAULTS, null, 2));
-      return { ...DEFAULTS, _fresh: true };
-    }
+    if (!fs.existsSync(path)) return defaults;
     const raw = fs.readFileSync(path, 'utf8');
-    const userConfig = JSON.parse(raw);
-    
-    return Object.entries(DEFAULTS).reduce((acc, [key, val]) => {
-      acc[key] = typeof userConfig[key] !== 'undefined' ? userConfig[key] : val;
-      return acc;
-    }, {});
-  } catch (e) {
-    return { ...DEFAULTS, _error: e.message };
+    const custom = JSON.parse(raw);
+    return Object.fromEntries(
+      Object.entries(defaults).map(([k, v]) => [k, k in custom ? custom[k] : v])
+    );
+  } catch (err) {
+    return defaults;
   }
 };
 
-const validateConfig = (cfg) => {
-  const rules = {
-    interval: (v) => v >= 10 && v <= 10000,
-    jitter: (v) => v >= 0 && v <= 1
-  };
-  
-  return Object.keys(rules).every(key => rules[key](cfg[key]));
-};
+const activeConfig = loadConfig('./settings.json');
 
-module.exports = { loadConfig, validateConfig };
+module.exports = {
+  activeConfig,
+  configProxy: new Proxy(activeConfig, {
+    get: (target, prop) => target[prop] ?? null
+  })
+};
