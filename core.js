@@ -1,46 +1,34 @@
-class UltraClicker {
-  constructor() {
-    this.running = false;
-    this.interval = 1;
-    this.target = null;
-    this.lastTime = 0;
-    const channel = new MessageChannel();
-    this.port = channel.port1;
-    this.post = channel.port2;
-    this.port.onmessage = () => this.execute();
-  }
+const serializeClickData = (clickEvents) => {
+  const buffer = new ArrayBuffer(clickEvents.length * 8);
+  const view = new Float64Array(buffer);
+  clickEvents.forEach((event, i) => {
+    view[i] = Date.now() + event.delay;
+  });
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+};
 
-  mount(element, ms = 1) {
-    this.target = element || document.body;
-    this.interval = Math.max(0.1, ms);
-    this.running = true;
-    this.lastTime = performance.now();
-    this.post.postMessage(null);
+const deserializeClickData = (encoded) => {
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
+  return new Float64Array(bytes.buffer);
+};
 
-  unmount() {
-    this.running = false;
-  }
-
-  execute() {
-    if (!this.running) return;
-    const now = performance.now();
-    const delta = now - this.lastTime;
-    if (delta >= this.interval) {
-      const clicksToDispatch = Math.min(100, Math.floor(delta / this.interval));
-      const event = new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: window
-      });
-      for (let i = 0; i < clicksToDispatch; i++) {
-        this.target.dispatchEvent(event);
+const streamController = {
+  queue: [],
+  flush(target) {
+    const batch = this.queue.splice(0, this.queue.length);
+    return batch.reduce((acc, task) => {
+      const element = document.elementFromPoint(task.x, task.y);
+      if (element) {
+        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        acc.push({ timestamp: Date.now(), success: true });
       }
-      this.lastTime = now - (delta % this.interval);
-    }
-    if (this.running) {
-      this.post.postMessage(null);
-    }
+      return acc;
+    }, []);
   }
-}
-window.UltraClicker = UltraClicker;
+};
+
+export { serializeClickData, deserializeClickData, streamController };
