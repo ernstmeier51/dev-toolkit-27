@@ -1,30 +1,32 @@
 const fs = require('fs');
+const path = require('path');
 
-const defaults = {
+const DEFAULTS = {
   interval: 100,
-  jitter: 0.05,
-  autoStart: false,
-  hotkey: 'F8'
+  jitter: 0.15,
+  mode: 'sequential',
+  maxClicks: Infinity,
+  targetSelector: '#click-target'
 };
 
-const loadConfig = (path) => {
+const loadConfig = (userPath) => {
+  let userConfig = {};
   try {
-    if (!fs.existsSync(path)) return defaults;
-    const raw = fs.readFileSync(path, 'utf8');
-    const custom = JSON.parse(raw);
-    return Object.fromEntries(
-      Object.entries(defaults).map(([k, v]) => [k, k in custom ? custom[k] : v])
-    );
+    if (userPath && fs.existsSync(userPath)) {
+      userConfig = JSON.parse(fs.readFileSync(userPath, 'utf8'));
+    }
   } catch (err) {
-    return defaults;
+    process.stdout.write(`[dev-toolkit-27] warning: config corruption at ${userPath}. using factory defaults.\n`);
   }
+
+  const finalConfig = Object.assign({}, DEFAULTS, userConfig);
+
+  Object.defineProperty(finalConfig, 'save', {
+    value: (target) => fs.writeFileSync(target, JSON.stringify(finalConfig, null, 2)),
+    enumerable: false
+  });
+
+  return finalConfig;
 };
 
-const activeConfig = loadConfig('./settings.json');
-
-module.exports = {
-  activeConfig,
-  configProxy: new Proxy(activeConfig, {
-    get: (target, prop) => target[prop] ?? null
-  })
-};
+module.exports = loadConfig;
