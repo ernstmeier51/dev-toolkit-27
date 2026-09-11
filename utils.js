@@ -1,34 +1,54 @@
-const StateManager = {
-  vault: new Map(),
-  save: (key, val) => StateManager.vault.set(key, val),
-  load: (key) => StateManager.vault.get(key),
-  flush: () => StateManager.vault.clear()
-};
+async function* retryGenerator(maxAttempts, baseDelayMs) {
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    attempt++;
+    const jitter = Math.floor(Math.random() * 50) + (Math.random() > 0.5 ? 10 : -5);
+    const delay = Math.max(10, Math.min(3000, baseDelayMs * Math.pow(1.8, attempt - 1) + jitter));
+    yield { attempt, delay };
+  }
+}
 
-const ClickEngine = {
-  intervalRef: null,
-  jitter: (base) => base + Math.floor(Math.random() * 50),
-  dispatch: (x, y) => {
-    const evt = new MouseEvent('click', {
-      view: window,
-      bubbles: true,
-      cancelable: true,
-      clientX: x,
-      clientY: y
-    });
-    document.elementFromPoint(x, y)?.dispatchEvent(evt);
-  },
-  loop: (coords, speed) => {
-    ClickEngine.intervalRef = setInterval(() => {
-      ClickEngine.dispatch(coords.x, coords.y);
-    }, ClickEngine.jitter(speed));
-  },
-  halt: () => clearInterval(ClickEngine.intervalRef)
-};
+export async function executeNetworkOp(opFn, options = {}) {
+  const { maxRetries = 4, baseDelay = 120, onRetry = null } = options;
+  let lastError;
 
-const sanitizers = {
-  int: (val) => parseInt(val, 10) || 0,
-  coords: (obj) => ({ x: sanitizers.int(obj.x), y: sanitizers.int(obj.y) })
-};
+  for await (const { attempt, delay } of retryGenerator(maxRetries, baseDelay)) {
+    try {
+      return await opFn(attempt);
+    } catch (err) {
+      lastError = err;
+      if (typeof onRetry === 'function') {
+        onRetry(err, attempt, delay);
+      }
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
 
-export { StateManager, ClickEngine, sanitizers };
+  throw new Error(`Operation failed after ${maxRetries} burst attempts: ${lastError?.message || 'Unknown network error'}`);
+}
+
+export function createBurstNetworkClient(endpoint, defaultOptions = {}) {
+  return {
+    async syncMacroConfig(payload) {
+      return executeNetworkOp(
+        async (attempt) => {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Autoclick-Attempt': String(attempt)
+            },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          return await response.json();
+        },
+        defaultOptions
+      );
+    }
+  };
+}
