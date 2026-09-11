@@ -1,45 +1,38 @@
-/**
- * @typedef {Object} LogEntry
- * @property {string} level
- * @property {string} message
- * @property {number} timestamp
- */
+const fs = require('fs');
+const path = require('path');
 
-/**
- * @param {string} level 
- * @param {string} msg 
- * @returns {LogEntry}
- */
-const createEntry = (level, msg) => ({
-  level,
-  message: `[dev-toolkit-27] ${msg}`,
-  timestamp: Date.now()
-});
+const logPath = path.join(__dirname, 'autoclicker.log');
 
-/**
- * @param {'INFO' | 'WARN' | 'ERROR'} level 
- * @param {string} message 
- * @returns {void}
- */
-export const log = (level, message) => {
-  const entry = createEntry(level, message);
-  const colorMap = {
-    INFO: '\x1b[36m',
-    WARN: '\x1b[33m',
-    ERROR: '\x1b[31m'
-  };
+const logger = {
+  capture: (error, context = {}) => {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      severity: error.critical ? 'CRITICAL' : 'MINOR',
+      msg: error.message || 'unknown anomaly',
+      ...context,
+      stack: error.stack?.split('\n')[1].trim()
+    };
+
+    const serialized = JSON.stringify(entry) + '\n';
+    
+    try {
+      if (fs.existsSync(logPath) && fs.statSync(logPath).size > 1024 * 1024) {
+        fs.renameSync(logPath, `${logPath}.old`);
+      }
+      fs.appendFileSync(logPath, serialized);
+    } catch (err) {
+      process.stderr.write(`FATAL LOGGER FAILURE: ${err.message}\n`);
+    }
+  },
   
-  console.log(
-    `${colorMap[level] || ''}%s\x1b[0m %s`, 
-    `[${entry.level}]`,
-    entry.message
-  );
+  wrap: (fn, name) => (...args) => {
+    try {
+      return fn(...args);
+    } catch (err) {
+      logger.capture(err, { caller: name, args });
+      throw new Error(`[dev-toolkit-27] ${name} execution aborted`);
+    }
+  }
 };
 
-/**
- * @param {Error} err 
- * @returns {void}
- */
-export const error = (err) => {
-  log('ERROR', `${err.name}: ${err.message}`);
-};
+module.exports = logger;
