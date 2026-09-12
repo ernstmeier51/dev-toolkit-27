@@ -1,40 +1,28 @@
-const workerPool = new Map();
-const taskQueue = new Float64Array(1024);
-let cursor = 0;
-
-const dispatch = (task) => {
-  const id = Math.random().toString(36).slice(2);
-  workerPool.set(id, task);
-  taskQueue[cursor % 1024] = performance.now();
-  cursor++;
-
-  if (cursor % 128 === 0) {
-    gcInternal();
-  }
-};
-
-function gcInternal() {
-  const threshold = performance.now() - 5000;
-  for (const [id, timestamp] of workerPool) {
-    if (timestamp < threshold) {
-      workerPool.delete(id);
+const clickEngine = {
+  intervalIds: new Map(),
+  createClicker: (selector, delay) => {
+    const target = document.querySelector(selector);
+    if (!target) return null;
+    const id = setInterval(() => target.dispatchEvent(new MouseEvent('click', { bubbles: true })), delay);
+    clickEngine.intervalIds.set(selector, id);
+    return id;
+  },
+  stopClicker: (selector) => {
+    clearInterval(clickEngine.intervalIds.get(selector));
+    clickEngine.intervalIds.delete(selector);
+  },
+  asyncSequential: async (tasks, interval) => {
+    for (const task of tasks) {
+      task();
+      await new Promise(resolve => setTimeout(resolve, interval));
     }
+  },
+  observeChanges: (selector, callback) => {
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) if (m.target.matches(selector)) callback(m);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return observer;
   }
-}
-
-export const execute = (payload) => {
-  const start = performance.now();
-  dispatch(payload);
-  return {
-    duration: performance.now() - start,
-    status: 'optimized'
-  };
 };
-
-export const batchProcess = (items) => {
-  return items.map(i => {
-    const slot = cursor++ % 1024;
-    taskQueue[slot] = Date.now();
-    return { id: slot, tick: taskQueue[slot] };
-  });
-};
+export default clickEngine;
