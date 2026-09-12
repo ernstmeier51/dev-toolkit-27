@@ -1,32 +1,34 @@
-const fs = require('fs');
-const path = require('path');
-
-const DEFAULTS = {
+const defaults = {
   interval: 100,
-  jitter: 0.15,
-  mode: 'sequential',
-  maxClicks: Infinity,
-  targetSelector: '#click-target'
+  jitter: 0.1,
+  enabled: true,
+  mode: 'sequential'
 };
 
-const loadConfig = (userPath) => {
-  let userConfig = {};
-  try {
-    if (userPath && fs.existsSync(userPath)) {
-      userConfig = JSON.parse(fs.readFileSync(userPath, 'utf8'));
+const merge = (userConfig = {}) => {
+  const config = { ...defaults, ...userConfig };
+  
+  const validate = (key, val) => {
+    if (typeof val !== typeof defaults[key]) {
+      throw new Error(`Invalid type for ${key}: expected ${typeof defaults[key]}`);
     }
-  } catch (err) {
-    process.stdout.write(`[dev-toolkit-27] warning: config corruption at ${userPath}. using factory defaults.\n`);
-  }
+  };
 
-  const finalConfig = Object.assign({}, DEFAULTS, userConfig);
-
-  Object.defineProperty(finalConfig, 'save', {
-    value: (target) => fs.writeFileSync(target, JSON.stringify(finalConfig, null, 2)),
-    enumerable: false
+  Object.keys(config).forEach(k => {
+    if (!(k in defaults)) delete config[k];
+    else validate(k, config[k]);
   });
 
-  return finalConfig;
+  return new Proxy(config, {
+    get: (target, prop) => target[prop] ?? null
+  });
 };
 
-module.exports = loadConfig;
+export const loadConfig = (input) => {
+  try {
+    const data = typeof input === 'string' ? JSON.parse(input) : input;
+    return merge(data);
+  } catch (e) {
+    return merge({});
+  }
+};
